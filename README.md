@@ -184,23 +184,23 @@ Status: **Verified** = exercised end to end during development (API test scripts
 | III.2 | Library only for authenticated users; search field; thumbnails | Verified |
 | III.2.1 | Search queries two legal external video sources | Verified (Internet Archive + PeerTube) |
 | III.2.2 | Search results sorted by name; front page shows popular items | Verified |
-| III.2.2 | Thumbnail: name, year, TMDb rating, cover | Name, year, cover verified; **rating needs `TMDB_API_KEY`** |
+| III.2.2 | Thumbnail: name, year, TMDb rating, cover | Verified (with `TMDB_API_KEY`) |
 | III.2.2 | Watched / unwatched shown differently | Verified |
 | III.2.2 | Async infinite scroll, no next-page link | Verified (24 → 144 items by scrolling) |
-| III.2.2 | Sort and filter by name, genre, rating, year | Verified (rating filter needs TMDb data) |
-| III.3 | Details: summary, cast, director, producers, year, length, rating, cover | Summary, year, length, cover verified; **cast/producers/rating need `TMDB_API_KEY`** |
+| III.2.2 | Sort and filter by name, genre, rating, year | Verified |
+| III.3 | Details: summary, cast, director, producers, year, length, rating, cover | Verified (with `TMDB_API_KEY`) |
 | III.3 | Comments: post and list | Verified |
 | III.3 | Server-side torrent download, playback starts before download completes, non-blocking | Verified (playback at about 7% downloaded; seek to 60% served in ~12 s) |
 | III.3 | Downloaded movie saved; erased after one month unwatched | Verified (cached playback; expiry test deleted files) |
 | III.3 | English subtitles; preferred-language subtitles, selectable | Verified for subtitles inside torrents (EN). Other languages need PeerTube captions or `OPENSUBTITLES_API_KEY` |
-| III.3 | On-the-fly conversion, at least MKV | Verified locally with a real Internet Archive MKV (playback and seeking in Chrome). The Docker image uses Debian's ffmpeg |
+| III.3 | On-the-fly conversion, at least MKV | Verified in Docker with a real Internet Archive MKV (playback at 3% downloaded, seeking) |
 | III.4 | OAuth2 REST API, every listed endpoint, 403 on others' profile/comments, proper codes | Verified (`scripts/api_demo.sh`) |
 | V.1 | No errors/warnings in the browser console or server | Verified in Chrome for the flows above; server log clean |
 
 ## 9. Known limitations / remaining issues
 
-* **Docker not executed here.** The development machine had no Docker, so the stack was verified with the same code running natively (Python 3.12, PostgreSQL, libtorrent 2.1.1, FFmpeg) instead. Run `docker compose up --build` once before the defense.
-* **TMDb, OAuth providers and OpenSubtitles** need your own free credentials (§2) and were not exercised live.
+* **OAuth providers (42, GitHub) and OpenSubtitles** need your own credentials (§2) and have not been exercised live yet.
+* The first library load after a fresh start takes about 10 s while ~200 films are matched on TMDb. Results are stored, so later loads are fast.
 * The quality of TMDb matching for Internet Archive titles depends on title and year. Unmatched items keep their source metadata, with no rating.
 * Download speed depends on the source (Archive web seeds usually deliver 1–2 MB/s). Start-up typically takes 20–30 s.
 * In conversion mode (MKV…), seeking restarts FFmpeg at the new position, which takes a few seconds.

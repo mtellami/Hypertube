@@ -11,6 +11,9 @@ from .services import streaming
 from .services.users import avatars_dir
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# httpx logs full request URLs at INFO level, which would expose API keys sent as query parameters.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
