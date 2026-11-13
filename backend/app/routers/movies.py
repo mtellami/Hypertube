@@ -122,6 +122,19 @@ async def ensure_details(movie_id: int) -> None:
     await run_in_threadpool(save)
 
 
+# One track per language: human-made subtitles beat Internet Archive's auto-generated (ASR) ones.
+SUBTITLE_PREFERENCE = {"opensubtitles": 0, "peertube": 1, "torrent": 2}
+
+
+def best_subtitles(subtitles: list) -> list:
+    best: dict = {}
+    for sub in subtitles:
+        current = best.get(sub.lang)
+        if current is None or SUBTITLE_PREFERENCE.get(sub.source, 9) < SUBTITLE_PREFERENCE.get(current.source, 9):
+            best[sub.lang] = sub
+    return sorted(best.values(), key=lambda s: (s.lang != "en", s.lang))
+
+
 def movie_detail(db: Session, movie: Movie, viewer: User) -> dict:
     comments = db.scalar(select(func.count(Comment.id)).where(Comment.movie_id == movie.id))
     watched = db.scalar(select(WatchedMovie.id).where(WatchedMovie.user_id == viewer.id,
@@ -146,7 +159,7 @@ def movie_detail(db: Session, movie: Movie, viewer: User) -> dict:
         "source_url": movie.page_url,
         "available_subtitles": [
             {"id": s.id, "lang": s.lang, "label": s.label, "url": f"/api/movies/{movie.id}/subtitles/{s.id}"}
-            for s in movie.subtitles
+            for s in best_subtitles(movie.subtitles)
         ],
         "comments_count": comments,
         "watched": watched,

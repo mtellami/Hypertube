@@ -59,6 +59,14 @@ function Stream({ movie, onSubtitlesMaybeChanged }: { movie: MovieDetail; onSubt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movie.id, attempt]);
 
+  // Subtitles are fetched in the background when playback starts (torrent files, PeerTube,
+  // OpenSubtitles): refresh the list for a minute, even when the film is already cached.
+  useEffect(() => {
+    const timers = [3000, 8000, 15000, 30000, 60000].map((ms) => window.setTimeout(onSubtitlesMaybeChanged, ms));
+    return () => timers.forEach((id) => window.clearTimeout(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movie.id, attempt]);
+
   const movieLang = movie.language ?? "en";
   const preferred = user?.language ?? "en";
   const defaultSub = preferred !== movieLang ? preferred : null;

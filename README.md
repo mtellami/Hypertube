@@ -192,14 +192,13 @@ Status: **Verified** = exercised end to end during development (API test scripts
 | III.3 | Comments: post and list | Verified |
 | III.3 | Server-side torrent download, playback starts before download completes, non-blocking | Verified (playback at about 7% downloaded; seek to 60% served in ~12 s) |
 | III.3 | Downloaded movie saved; erased after one month unwatched | Verified (cached playback; expiry test deleted files) |
-| III.3 | English subtitles; preferred-language subtitles, selectable | Verified for subtitles inside torrents (EN). Other languages need PeerTube captions or `OPENSUBTITLES_API_KEY` |
+| III.3 | English subtitles; preferred-language subtitles, selectable | Verified: English (from the torrent or OpenSubtitles) plus the user's language when it differs from the film's (e.g. French, preselected), selectable in the player. One track per language |
 | III.3 | On-the-fly conversion, at least MKV | Verified in Docker with a real Internet Archive MKV (playback at 3% downloaded, seeking) |
 | III.4 | OAuth2 REST API, every listed endpoint, 403 on others' profile/comments, proper codes | Verified (`scripts/api_demo.sh`) |
 | V.1 | No errors/warnings in the browser console or server | Verified in Chrome for the flows above; server log clean |
 
 ## 9. Known limitations / remaining issues
 
-* **OpenSubtitles** needs your own credentials (§2) and has not been exercised live; English subtitles shipped inside torrents work without it.
 * The 42 and GitHub OAuth apps are registered for `http://localhost:8080`. If you serve the app on another URL, update `PUBLIC_URL` and both apps' callback URLs.
 * The first library load after a fresh start takes about 10 s while ~200 films are matched on TMDb. Results are stored, so later loads are fast.
 * The quality of TMDb matching for Internet Archive titles depends on title and year. Unmatched items keep their source metadata, with no rating.
