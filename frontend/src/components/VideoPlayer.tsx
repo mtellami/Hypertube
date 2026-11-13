@@ -34,6 +34,12 @@ function parseVtt(text: string): Cue[] {
   return cues.sort((x, y) => x.start - y.start);
 }
 
+/** True when the user has interacted with the page (needed for autoplay with sound). */
+export function hasUserActivation(): boolean {
+  const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+  return ua ? ua.hasBeenActive : false;
+}
+
 interface Props {
   movieId: number;
   mode: "native" | "transcode";
@@ -99,12 +105,17 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
     v.play().catch(() => setPlaying(false));
   }, []);
 
-  // New source (first load or transcode seek): start playing.
+  // New source (first load or transcode seek): start playing, but only after a user
+  // gesture on this page; otherwise browsers block autoplay (and Firefox logs a warning).
   useEffect(() => {
     setError(false);
-    setWaiting(true);
     setTime(0);
-    play();
+    if (hasUserActivation()) {
+      setWaiting(true);
+      play();
+    } else {
+      setWaiting(false);
+    }
   }, [src, play]);
 
   const togglePlay = useCallback(() => {

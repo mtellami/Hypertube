@@ -5,7 +5,7 @@ import { useAuth } from "../auth";
 import {
   ArrowLeftIcon, CalendarIcon, CaptionsIcon, CheckIcon, ClockIcon, ExternalIcon, EyeIcon, FilmIcon, PlayIcon, StarIcon,
 } from "../components/icons";
-import VideoPlayer from "../components/VideoPlayer";
+import VideoPlayer, { hasUserActivation } from "../components/VideoPlayer";
 import { Alert, Avatar, EmptyState, FullPageSpinner, Spinner } from "../components/ui";
 import { useI18n } from "../i18n";
 
@@ -248,7 +248,7 @@ export default function MoviePage() {
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [playing, setPlaying] = useState(params.get("play") === "1");
+  const [playing, setPlaying] = useState(params.get("play") === "1" && hasUserActivation());
   const playerRef = useRef<HTMLDivElement>(null);
   const movieId = Number(id);
 
@@ -265,7 +265,7 @@ export default function MoviePage() {
     setMovie(null);
     setNotFound(false);
     setFailed(false);
-    setPlaying(params.get("play") === "1");
+    setPlaying(params.get("play") === "1" && hasUserActivation());
     if (!Number.isInteger(movieId) || movieId <= 0) {
       setNotFound(true);
       return;
