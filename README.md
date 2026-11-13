@@ -176,7 +176,7 @@ Status: **Verified** = exercised end to end during development (API test scripts
 | III.1 | Register with email, username, last name, first name, protected password | Verified |
 | III.1 | Login with username/password | Verified |
 | III.1 | Password-reset email | Verified (email received over SMTP, token single-use) |
-| III.1 | OmniAuth: 42 + GitHub | Implemented; needs your OAuth app credentials to test live (authorize URLs checked) |
+| III.1 | OmniAuth: 42 + GitHub | Verified (both providers; an existing account with the same verified email is linked, not duplicated) |
 | III.1 | One-click logout from every page | Verified (header button) |
 | III.1 | Preferred language, default English (EN/FR/ES UI) | Verified |
 | III.1 | Edit email, picture, information | Verified |
@@ -199,7 +199,8 @@ Status: **Verified** = exercised end to end during development (API test scripts
 
 ## 9. Known limitations / remaining issues
 
-* **OAuth providers (42, GitHub) and OpenSubtitles** need your own credentials (§2) and have not been exercised live yet.
+* **OpenSubtitles** needs your own credentials (§2) and has not been exercised live; English subtitles shipped inside torrents work without it.
+* The 42 and GitHub OAuth apps are registered for `http://localhost:8080`. If you serve the app on another URL, update `PUBLIC_URL` and both apps' callback URLs.
 * The first library load after a fresh start takes about 10 s while ~200 films are matched on TMDb. Results are stored, so later loads are fast.
 * The quality of TMDb matching for Internet Archive titles depends on title and year. Unmatched items keep their source metadata, with no rating.
 * Download speed depends on the source (Archive web seeds usually deliver 1–2 MB/s). Start-up typically takes 20–30 s.
