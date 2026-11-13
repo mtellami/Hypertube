@@ -11,11 +11,11 @@ export function Logo() {
       <svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true">
         <defs>
           <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#ff5f3a" />
-            <stop offset="1" stopColor="#ffb347" />
+            <stop offset="0" stopColor="#7c5cff" />
+            <stop offset="1" stopColor="#38bdf8" />
           </linearGradient>
         </defs>
-        <rect width="64" height="64" rx="16" fill="#151822" />
+        <rect width="64" height="64" rx="16" fill="#141b30" />
         <path d="M22 18v28M42 18v28M22 32h20" stroke="url(#lg)" strokeWidth="7" strokeLinecap="round" />
       </svg>
       <span>Hyper<b>tube</b></span>

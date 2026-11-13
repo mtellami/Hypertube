@@ -53,10 +53,10 @@ def send_password_reset(to: str, first_name: str, language: str, link: str) -> b
     subject, hello, body, cta, ignore = RESET_TEXTS.get(language, RESET_TEXTS["en"])
     hello = hello.format(name=first_name)
     text = f"{hello}\n\n{body}\n{link}\n\n{ignore}\n"
-    html = f"""<div style="font-family:Arial,sans-serif;background:#0b0d12;color:#e8eaf0;padding:32px">
-<div style="max-width:480px;margin:auto;background:#151923;border-radius:16px;padding:32px">
-<h1 style="margin:0 0 24px;font-size:22px;color:#ff7a45">Hypertube</h1>
+    html = f"""<div style="font-family:Arial,sans-serif;background:#070a14;color:#e8ecf8;padding:32px">
+<div style="max-width:480px;margin:auto;background:#11172a;border-radius:16px;padding:32px">
+<h1 style="margin:0 0 24px;font-size:22px;color:#9db4ff">Hypertube</h1>
 <p>{escape(hello)}</p><p>{escape(body)}</p>
-<p style="margin:28px 0"><a href="{escape(link)}" style="background:#ff6b3d;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:bold">{escape(cta)}</a></p>
-<p style="color:#8b91a1;font-size:13px">{escape(ignore)}</p></div></div>"""
+<p style="margin:28px 0"><a href="{escape(link)}" style="background:#6d5cff;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:bold">{escape(cta)}</a></p>
+<p style="color:#7f88a6;font-size:13px">{escape(ignore)}</p></div></div>"""
     return send_mail(to, subject, text, html)
