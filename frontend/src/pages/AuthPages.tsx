@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type FormResult, type Lang } from "../api";
 import { useAuth } from "../auth";
-import { FortyTwoIcon, GithubIcon } from "../components/icons";
+import { DiscordIcon, FortyTwoIcon, GithubIcon, GitlabIcon } from "../components/icons";
 import { Alert, Field, SelectField, Spinner } from "../components/ui";
 import { LANGUAGES, isLang, useI18n, type TFunction } from "../i18n";
 
@@ -74,12 +74,27 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle: str
 
 function OAuthButtons() {
   const { t } = useI18n();
+  // 42 and GitHub are always offered; extra providers appear once configured on the server.
+  const [extra, setExtra] = useState<string[]>([]);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    api<{ providers: string[] }>("/auth/oauth/providers", { signal: ctrl.signal })
+      .then((r) => setExtra(r.providers.filter((p) => p === "discord" || p === "gitlab")))
+      .catch(() => undefined);
+    return () => ctrl.abort();
+  }, []);
   return (
     <>
       <div className="divider"><span>{t("auth.or")}</span></div>
       <div className="oauth-buttons">
         <a className="btn oauth ft" href="/api/auth/oauth/42/login"><FortyTwoIcon width={22} height={16} />{t("auth.with_42")}</a>
         <a className="btn oauth gh" href="/api/auth/oauth/github/login"><GithubIcon />{t("auth.with_github")}</a>
+        {extra.includes("discord") && (
+          <a className="btn oauth dc" href="/api/auth/oauth/discord/login"><DiscordIcon />{t("auth.with_provider", { p: "Discord" })}</a>
+        )}
+        {extra.includes("gitlab") && (
+          <a className="btn oauth gl" href="/api/auth/oauth/gitlab/login"><GitlabIcon />{t("auth.with_provider", { p: "GitLab" })}</a>
+        )}
       </div>
     </>
   );

@@ -1,4 +1,4 @@
-"""OAuth2 authorization-code flows for 42 and GitHub, implemented with plain HTTP calls."""
+"""OAuth2 authorization-code flows (42, GitHub, Discord, GitLab), implemented with plain HTTP calls."""
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
@@ -32,14 +32,27 @@ PROVIDERS = {
         "token": "https://github.com/login/oauth/access_token",
         "scope": "read:user user:email",
     },
+    "discord": {
+        "authorize": "https://discord.com/oauth2/authorize",
+        "token": "https://discord.com/api/oauth2/token",
+        "scope": "identify email",
+    },
+    "gitlab": {
+        "authorize": "https://gitlab.com/oauth/authorize",
+        "token": "https://gitlab.com/oauth/token",
+        "scope": "read_user",
+    },
 }
 
 
 def credentials(provider: str) -> tuple[str, str]:
     s = get_settings()
-    if provider == "42":
-        return s.ft_client_id, s.ft_client_secret
-    return s.github_client_id, s.github_client_secret
+    return {
+        "42": (s.ft_client_id, s.ft_client_secret),
+        "github": (s.github_client_id, s.github_client_secret),
+        "discord": (s.discord_client_id, s.discord_client_secret),
+        "gitlab": (s.gitlab_client_id, s.gitlab_client_secret),
+    }[provider]
 
 
 def is_configured(provider: str) -> bool:
@@ -103,6 +116,36 @@ async def fetch_profile(provider: str, code: str) -> OAuthProfile:
                     first_name=(me.get("first_name") or me.get("login") or "Student")[:64],
                     last_name=(me.get("last_name") or me.get("login") or "Student")[:64],
                     avatar_url=image if image and image.startswith("https://") else None,
+                )
+
+            if provider == "discord":
+                r = await client.get("https://discord.com/api/users/@me", headers=headers)
+                if r.status_code != 200:
+                    raise OAuthError("Profile request failed")
+                me = r.json()
+                avatar = (f"https://cdn.discordapp.com/avatars/{me['id']}/{me['avatar']}.png?size=256"
+                          if me.get("avatar") else None)
+                first, last = _split_name(me.get("global_name"), me.get("username") or "User")
+                return OAuthProfile(
+                    provider_user_id=str(me["id"]),
+                    email=me.get("email") if me.get("verified") else None,
+                    username=me.get("username") or f"discord{me['id']}",
+                    first_name=first, last_name=last, avatar_url=avatar,
+                )
+
+            if provider == "gitlab":
+                r = await client.get("https://gitlab.com/api/v4/user", headers=headers)
+                if r.status_code != 200:
+                    raise OAuthError("Profile request failed")
+                me = r.json()
+                first, last = _split_name(me.get("name"), me.get("username") or "User")
+                avatar = me.get("avatar_url")
+                return OAuthProfile(
+                    provider_user_id=str(me["id"]),
+                    email=me.get("email"),  # the account's confirmed primary address
+                    username=me.get("username") or f"gitlab{me['id']}",
+                    first_name=first, last_name=last,
+                    avatar_url=avatar if avatar and avatar.startswith("https://") else None,
                 )
 
             r = await client.get("https://api.github.com/user", headers=headers)

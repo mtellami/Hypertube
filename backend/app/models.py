@@ -71,6 +71,7 @@ class Movie(Base):
     tmdb_id: Mapped[int | None] = mapped_column(Integer)
     imdb_id: Mapped[str | None] = mapped_column(String(16))
     page_url: Mapped[str | None] = mapped_column(String(1024))
+    added_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
     enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     details_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

@@ -131,6 +131,28 @@ Any other route returns `404`; any other method on a known route returns `405`. 
 
 The web UI also uses a few session endpoints (`/api/auth/*`, `/api/me`, `/api/library`, streaming). Expected user errors on these, like a wrong password or an invalid field, come back as `200 {"ok": false, …}`. This keeps the browser console free of failed-request lines, as the subject's eliminatory rules require. The public API above uses standard status codes.
 
+## 5b. Bonus features (subject chapter IV)
+
+Only the subject's own suggestions were implemented, all keeping the same constraints (server-side, background downloads).
+
+| Subject idea | What was built | Where |
+|---|---|---|
+| More OmniAuth strategies | **Discord** and **GitLab** login next to 42 and GitHub. Buttons appear once `DISCORD_*` / `GITLAB_*` are set in `.env` | `services/oauth_providers.py`, `pages/AuthPages.tsx` |
+| Various video resolutions | Quality menu in the player: *Original* plus every standard height up to the source (1080/720/480/360p). FFmpeg re-encodes on the fly (`?quality=720`), and the playback position is kept when switching | `services/transcode.py`, `routers/stream.py`, `components/VideoPlayer.tsx` |
+| Stream via the MediaSource API | Converted streams (MKV…, or a chosen resolution) are fed to `<video>` through **Media Source Extensions**: the fMP4 response is read chunk by chunk and appended to a `SourceBuffer`, with back-pressure (≤ 90 s ahead) and buffer eviction. Native MP4/WebM still use HTTP ranges. The `data-delivery` attribute on `<video>` shows which is used | `components/mediaSource.ts` |
+| More API routes (add, delete movies…) | See below | `routers/movies.py`, `users.py`, `comments.py` |
+
+**Extra REST routes** (all require a Bearer token; shown in `/api/docs` and `scripts/api_demo.sh`):
+
+| Method & path | Result |
+|---|---|
+| `GET /movies/search?q=&page=` | Search both sources, sorted by name, paginated |
+| `POST /movies` `{source: "archive"\|"peertube", source_id}` | Import a film from a source (same legality filters as search) → `201` + `Location`; `409` if it exists; `404` if unknown; `422` invalid |
+| `DELETE /movies/:id` | `204`, only for the user who imported it; catalog films → `403` |
+| `DELETE /users/:id` | Delete your own account (`204`); anyone else's → `403` |
+| `GET /users/:id/comments` | A user's comments |
+| `GET /comments?page=&limit=` | Pagination; total in the `X-Total-Count` header |
+
 ## 6. Security
 
 * Passwords hashed with **Argon2id** (never stored in plain text). Strength rules are enforced on the server.

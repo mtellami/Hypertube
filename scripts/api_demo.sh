@@ -34,7 +34,10 @@ curl -s -H "$AUTH" "$BASE/users" | pp
 show "GET $BASE/users/1"
 curl -s -H "$AUTH" "$BASE/users/1" | pp
 
-OTHER="${OTHER_USER_ID:-2}"
+# Our own id is the "sub" claim of the JWT; pick any other user for the 403 checks.
+ME=$(python3 -c "import base64,json,sys; p=sys.argv[1].split('.')[1]; print(json.loads(base64.urlsafe_b64decode(p+'='*(-len(p)%4)))['sub'])" "$TOKEN")
+OTHER="${OTHER_USER_ID:-$(curl -s -H "$AUTH" "$BASE/users" | python3 -c "import json,sys; print(next((u['id'] for u in json.load(sys.stdin) if str(u['id'])!=sys.argv[1]), 0))" "$ME")}"
+echo "(you are user $ME; 'another user' is $OTHER)"
 show "PATCH $BASE/users/$OTHER   (another user's profile -> 403)"
 curl -s -w "\nHTTP %{http_code}\n" -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"username":"hacker"}' "$BASE/users/$OTHER"
@@ -68,8 +71,32 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" -X DELETE -H "$AUTH" "$BASE/commen
 show "GET $BASE/users   (no token)"
 curl -s -o /dev/null -w "HTTP %{http_code}\n" "$BASE/users"
 
-show "DELETE $BASE/movies/$MOVIE_ID   (not part of the API)"
-curl -s -o /dev/null -w "HTTP %{http_code}\n" -X DELETE -H "$AUTH" "$BASE/movies/$MOVIE_ID"
+show "DELETE $BASE/movies/$MOVIE_ID   (catalog film, not imported by you -> 403)"
+curl -s -w "\nHTTP %{http_code}\n" -X DELETE -H "$AUTH" "$BASE/movies/$MOVIE_ID"
+
+# ---------------------------------------------------------------- bonus routes
+show "GET $BASE/movies/search?q=sintel   (bonus)"
+curl -s -H "$AUTH" "$BASE/movies/search?q=sintel" | head -c 500; echo " ..."
+
+IMPORT_ID="${IMPORT_ID:-plan.-9.-from.-outer.-space.-1957}"
+show "POST $BASE/movies   (bonus: import a film from a source; 201, or 409 if it already exists)"
+curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$AUTH" -H "Content-Type: application/json" \
+  -d "{\"source\":\"archive\",\"source_id\":\"$IMPORT_ID\"}" "$BASE/movies"
+
+show "POST $BASE/movies   (unknown id -> 404, bad source -> 422)"
+curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"source":"archive","source_id":"no-such-item-xyz-123"}' "$BASE/movies"
+curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"source":"youtube","source_id":"x"}' "$BASE/movies"
+
+show "GET $BASE/comments?page=1&limit=2   (bonus: pagination, total in X-Total-Count)"
+curl -s -D - -o /dev/null -H "$AUTH" "$BASE/comments?page=1&limit=2" | grep -i x-total-count
+
+show "GET $BASE/users/$OTHER/comments   (bonus)"
+curl -s -H "$AUTH" "$BASE/users/$OTHER/comments" | head -c 300; echo " ..."
+
+show "DELETE $BASE/users/$OTHER   (someone else's account -> 403)"
+curl -s -w "\nHTTP %{http_code}\n" -X DELETE -H "$AUTH" "$BASE/users/$OTHER"
 
 show "GET $BASE/unknown"
 curl -s -o /dev/null -w "HTTP %{http_code}\n" -H "$AUTH" "$BASE/unknown"

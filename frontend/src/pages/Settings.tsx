@@ -222,7 +222,7 @@ export default function Settings() {
     <div className="container settings-page">
       <h1>{t("settings.title")}</h1>
       {user!.oauth_providers && user!.oauth_providers.length > 0 && (
-        <p className="muted">{t("settings.linked", { p: user!.oauth_providers.map((p) => (p === "42" ? "42" : "GitHub")).join(", ") })}</p>
+        <p className="muted">{t("settings.linked", { p: user!.oauth_providers.map((p) => ({ "42": "42", github: "GitHub", discord: "Discord", gitlab: "GitLab" })[p] ?? p).join(", ") })}</p>
       )}
       <section className="panel">
         <header><h2>{t("settings.avatar")}</h2></header>

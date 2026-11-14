@@ -44,6 +44,15 @@ docker compose logs -f backend # keep this open in a second terminal
 | 19 | REST API | terminal | `./scripts/api_demo.sh <user> <password>` (see §2) |
 | 20 | Console | DevTools | No errors or warnings during the whole demo |
 
+## 1b. Bonus demo (only if the mandatory part was validated)
+
+| Bonus | Show |
+|---|---|
+| Extra OAuth strategies | Login page → "Continue with Discord" (and GitLab if configured). Settings → "Linked accounts" |
+| Video resolutions | Player → gear "HD/SD" button → pick 360p. Playback continues at the same time, and the picture is visibly lower resolution. Back to "Original" resumes on the original file |
+| MediaSource API | Play an MKV, or pick a resolution. DevTools → Elements: `<video data-delivery="mediasource" src="blob:…">`. Code: `frontend/src/components/mediaSource.ts` (`MediaSource` → `addSourceBuffer` → `appendBuffer`, back-pressure, eviction) |
+| More API routes | `./scripts/api_demo.sh` bonus section: `GET /movies/search`, `POST /movies` (201/409/404/422), `DELETE /movies/:id` (403 if not yours), `DELETE /users/:id` (403 if not you), comment pagination (`X-Total-Count`) |
+
 ## 2. Proving the API is RESTful
 
 ```bash

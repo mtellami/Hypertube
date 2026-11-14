@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     ft_client_secret: str = ""
     github_client_id: str = ""
     github_client_secret: str = ""
+    discord_client_id: str = ""
+    discord_client_secret: str = ""
+    gitlab_client_id: str = ""
+    gitlab_client_secret: str = ""
 
     # External metadata / subtitles
     tmdb_api_key: str = ""  # v3 key or v4 read access token

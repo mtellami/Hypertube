@@ -91,20 +91,26 @@ def _ranged(request: Request, movie: Movie, content_type: str) -> Response:
 
 @router.get("/movies/{movie_id:int}/stream/video")
 async def stream_video(movie_id: int, request: Request, start: float = Query(0, ge=0, le=86400),
-                       db: Session = Depends(get_db), _: User = Depends(current_user)):
+                       quality: int | None = Query(None), db: Session = Depends(get_db),
+                       _: User = Depends(current_user)):
+    """Native mp4/webm: byte ranges. Otherwise (or when a resolution is requested):
+    fragmented MP4 produced on the fly by ffmpeg, starting at `start` seconds."""
     movie = _movie(db, movie_id)
     job = streaming.engine.jobs.get(movie_id)
     ext = ext_of(movie.file_path or (job.rel_path if job else ""))
     if not ext:
         raise HTTPException(409, "The download has not been started.")
-    if ext in NATIVE_EXT:
+    if quality is not None and quality not in transcode.QUALITIES:
+        raise HTTPException(422, f"quality must be one of {list(transcode.QUALITIES)}.")
+    if ext in NATIVE_EXT and quality is None:
         return _ranged(request, movie, MIME[ext])
-    # Not natively playable: convert on the fly to fragmented MP4.
     source = streaming.source_for_ffmpeg(movie)
     info = await transcode.probe(source)
     if not info.get("video_codec"):
         raise HTTPException(503, "The video is not ready yet.")
-    return StreamingResponse(transcode.stream(source, start, info), media_type="video/mp4",
+    if quality is not None and quality not in transcode.available_qualities(info):
+        raise HTTPException(422, "This resolution is higher than the source.")
+    return StreamingResponse(transcode.stream(source, start, info, quality), media_type="video/mp4",
                              headers={"Cache-Control": "no-store"})
 
 

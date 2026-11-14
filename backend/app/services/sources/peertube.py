@@ -94,3 +94,20 @@ async def captions(client: httpx.AsyncClient, source_id: str) -> list[tuple[str,
         if lang.get("id") and path:
             out.append((lang["id"][:8], lang.get("label") or lang["id"], path))
     return out
+
+
+UUID_RE = re.compile(r"^[0-9a-fA-F-]{8,64}$|^[0-9A-Za-z]{10,32}$")
+
+
+async def fetch_one(client: httpx.AsyncClient, source_id: str, allowed_hosts: list[str]) -> SourceItem | None:
+    """One video ("host/uuid"), only from an allowed instance."""
+    host, _, uuid = source_id.partition("/")
+    if host.lower() not in allowed_hosts or not UUID_RE.match(uuid):
+        return None
+    r = await client.get(f"https://{host}/api/v1/videos/{uuid}", timeout=20)
+    if r.status_code != 200:
+        return None
+    video = r.json()
+    if video.get("isLive") or not video.get("uuid"):
+        return None
+    return _to_item(host.lower(), video)

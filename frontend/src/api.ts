@@ -84,6 +84,10 @@ export interface StreamStatus {
   container: string | null;
   duration: number | null;
   error: string | null;
+  height: number | null;
+  qualities: number[];
+  mse_type: string | null;
+  mse_type_converted: string | null;
 }
 
 export interface CommentItem {

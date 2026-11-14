@@ -28,7 +28,7 @@ engine: TorrentEngine | None = None
 _starting: dict[int, asyncio.Task] = {}
 _errors: dict[int, str] = {}
 _sub_attempts: set[tuple[int, str]] = set()
-_durations: dict[int, float] = {}
+_probes: dict[int, dict] = {}
 _bg: set[asyncio.Task] = set()
 
 
@@ -266,7 +266,8 @@ async def status(movie: Movie) -> dict:
     ext = ext_of(movie.file_path or (job.rel_path if job else ""))
     mode = "native" if ext in NATIVE_EXT else "transcode"
     result = {"state": "idle", "progress": 0.0, "buffer": 0.0, "download_rate": 0, "peers": 0, "ready": False,
-              "mode": mode if ext else None, "container": ext or None, "duration": None, "error": None}
+              "mode": mode if ext else None, "container": ext or None, "duration": None, "error": None,
+              "height": None, "qualities": [], "mse_type": None, "mse_type_converted": None}
     if path:
         result.update(state="complete", progress=100.0, buffer=100.0, ready=True)
     elif job:
@@ -280,12 +281,20 @@ async def status(movie: Movie) -> dict:
     elif movie.id in _errors:
         result.update(state="error", error=_errors[movie.id])
 
-    if result["ready"] and mode == "transcode":
-        if movie.id not in _durations:
+    if result["ready"]:
+        # Probe once (cached): duration for converted streams, resolutions for the quality
+        # menu, and the codec string the player needs for MediaSource.
+        info = _probes.get(movie.id)
+        if info is None:
             info = await transcode.probe(source_for_ffmpeg(movie))
-            if info.get("duration"):
-                _durations[movie.id] = info["duration"]
-        result["duration"] = _durations.get(movie.id)
+            if info.get("video_codec"):
+                _probes[movie.id] = info
+        if info.get("video_codec"):
+            result["duration"] = info.get("duration") or None
+            result["height"] = info.get("height")
+            result["qualities"] = transcode.available_qualities(info)
+            result["mse_type"] = transcode.mse_codecs(info, None)
+            result["mse_type_converted"] = transcode.mse_codecs(info, 720)
     return result
 
 
@@ -302,7 +311,7 @@ async def cleanup_once() -> int:
     ids = await run_in_threadpool(_expired_movies, cutoff)
     for movie_id in ids:
         engine.remove(movie_id, delete_files=True)
-        _durations.pop(movie_id, None)
+        _probes.pop(movie_id, None)
         await run_in_threadpool(_update_movie, movie_id, download_state="none", file_path=None, file_size=None,
                                 downloaded_at=None)
         log.info("Movie %s erased (unwatched for %s days)", movie_id, get_settings().unwatched_retention_days)

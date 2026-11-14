@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import shutil
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, Response
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -9,7 +12,8 @@ from ..db import SessionLocal, get_db
 from ..models import Comment, Movie, User, WatchedMovie
 from ..schemas import movie_card
 from ..security import current_user
-from ..services import catalog, tmdb
+from ..services import catalog, streaming, tmdb
+from ..services.subtitles import subtitles_dir
 
 router = APIRouter(prefix="/api", tags=["movies"])
 PAGE_SIZE = 24
@@ -176,3 +180,76 @@ async def get_movie(movie_id: int, user: User = Depends(current_user), db: Sessi
     db.expire_all()
     movie = db.get(Movie, movie_id)
     return movie_detail(db, movie, user)
+
+
+# --- Bonus API routes -----------------------------------------------------------
+@router.get("/movies/search")
+async def api_search(
+    q: str = Query(..., min_length=1, max_length=100),
+    page: int = Query(1, ge=1, le=100),
+    _: User = Depends(current_user),
+):
+    """Search both sources; results sorted by name, 24 per page."""
+    try:
+        ids = await catalog.pool(q.strip())
+    except catalog.SourcesUnavailable:
+        raise HTTPException(503, "Video sources are temporarily unavailable.") from None
+
+    def load():
+        with SessionLocal() as db:
+            movies = db.scalars(select(Movie).where(Movie.id.in_(ids))).all() if ids else []
+            movies = catalog.filter_sort(movies, searching=True, genre=None, min_rating=None,
+                                         year_min=None, year_max=None, sort=None, order=None)
+            chunk = movies[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+            return {"page": page, "total": len(movies), "has_more": page * PAGE_SIZE < len(movies),
+                    "results": [{"id": m.id, "name": m.title, "year": m.year,
+                                 "rating": round(m.rating, 1) if m.rating is not None else None} for m in chunk]}
+    return await run_in_threadpool(load)
+
+
+@router.post("/movies", status_code=201)
+async def add_movie(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Import a film from a source: {"source": "archive"|"peertube", "source_id": "..."}.
+    PeerTube ids are "host/uuid" and must belong to an allowed instance."""
+    try:
+        data = await request.json()
+    except ValueError:
+        raise HTTPException(400, "Body must be valid JSON.") from None
+    if not isinstance(data, dict):
+        raise HTTPException(400, "Body must be a JSON object.")
+    source, source_id = data.get("source"), data.get("source_id")
+    if source not in ("archive", "peertube"):
+        raise HTTPException(422, "Field 'source' must be 'archive' or 'peertube'.")
+    if not isinstance(source_id, str) or not 1 <= len(source_id.strip()) <= 255:
+        raise HTTPException(422, "Field 'source_id' must be a non-empty string.")
+    try:
+        result = await catalog.import_one(source, source_id.strip(), user.id)
+    except Exception:
+        raise HTTPException(503, "The source could not be reached.") from None
+    if result is None:
+        raise HTTPException(404, "No legally distributable video with this id was found at the source.")
+    movie_id, created = result
+    await ensure_details(movie_id)
+    catalog.forget_pools()
+    db.expire_all()
+    body = movie_detail(db, db.get(Movie, movie_id), user)
+    if not created:
+        return JSONResponse({"detail": "This movie already exists.", "movie": body}, status_code=409,
+                            headers={"Location": f"/api/movies/{movie_id}"})
+    return JSONResponse(body, status_code=201, headers={"Location": f"/api/movies/{movie_id}"})
+
+
+@router.delete("/movies/{movie_id:int}", status_code=204)
+def delete_movie(movie_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Only the user who imported a movie through the API may delete it (catalog films are protected)."""
+    movie = db.get(Movie, movie_id)
+    if movie is None:
+        raise HTTPException(404, "Movie not found.")
+    if movie.added_by_id != user.id:
+        raise HTTPException(403, "You can only delete movies you added.")
+    streaming.engine.remove(movie_id, delete_files=True)
+    shutil.rmtree(subtitles_dir(movie_id), ignore_errors=True)
+    db.delete(movie)
+    db.commit()
+    catalog.forget_pools()
+    return Response(status_code=204)

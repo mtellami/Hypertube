@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import Movie, User, WatchedMovie
 from ..schemas import movie_card, private_user, public_user, user_view
-from ..security import current_user, hash_password, random_token
-from ..services.users import MAX_AVATAR_BYTES, FieldErrors, save_avatar, update_user
+from ..security import clear_session_cookie, current_user, hash_password, random_token
+from ..services.users import MAX_AVATAR_BYTES, FieldErrors, remove_local_avatar, save_avatar, update_user
 
 router = APIRouter(prefix="/api", tags=["users"])
 
@@ -48,6 +48,22 @@ async def patch_user(user_id: int, request: Request, db: Session = Depends(get_d
     except FieldErrors as exc:
         return JSONResponse({"detail": "Validation failed.", "errors": exc.errors}, status_code=exc.status)
     return private_user(user)
+
+
+@router.delete("/users/{user_id:int}", status_code=204)
+def delete_user(user_id: int, db: Session = Depends(get_db), viewer: User = Depends(current_user)):
+    """Delete your own account (and your comments). Any other account returns 403."""
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, "User not found.")
+    if target.id != viewer.id:
+        raise HTTPException(403, "You can only delete your own account.")
+    remove_local_avatar(target)
+    db.delete(target)
+    db.commit()
+    response = Response(status_code=204)
+    clear_session_cookie(response)
+    return response
 
 
 @router.get("/users/{user_id:int}/watched")

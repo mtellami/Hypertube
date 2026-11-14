@@ -110,6 +110,10 @@ function Stream({ movie, onSubtitlesMaybeChanged }: { movie: MovieDetail; onSubt
         subtitles={movie.available_subtitles}
         defaultSubtitle={defaultSub}
         poster={movie.backdrop_url}
+        sourceHeight={status!.height}
+        qualities={status!.qualities}
+        mseType={status!.mse_type}
+        mseTypeConverted={status!.mse_type_converted}
       />
       <div className="stream-meta">
         {status!.state === "complete" ? (

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from ..db import get_db
@@ -51,9 +51,23 @@ def _create(db: Session, user: User, movie_id, text) -> Comment:
 
 
 @router.get("/comments")
-def latest_comments(db: Session = Depends(get_db), _: User = Depends(current_user)):
+def latest_comments(response: Response, db: Session = Depends(get_db), _: User = Depends(current_user),
+                    page: int = Query(1, ge=1, le=10000), limit: int = Query(50, ge=1, le=100)):
+    """Latest comments, newest first. Paginated with ?page= and ?limit= (total in X-Total-Count)."""
+    total = db.scalar(select(func.count(Comment.id)))
     rows = db.scalars(select(Comment).options(joinedload(Comment.user))
-                      .order_by(Comment.created_at.desc(), Comment.id.desc()).limit(50)).all()
+                      .order_by(Comment.created_at.desc(), Comment.id.desc())
+                      .offset((page - 1) * limit).limit(limit)).all()
+    response.headers["X-Total-Count"] = str(total)
+    return [comment_view(c) for c in rows]
+
+
+@router.get("/users/{user_id:int}/comments")
+def user_comments(user_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    if db.get(User, user_id) is None:
+        raise HTTPException(404, "User not found.")
+    rows = db.scalars(select(Comment).options(joinedload(Comment.user)).where(Comment.user_id == user_id)
+                      .order_by(Comment.created_at.desc(), Comment.id.desc()).limit(100)).all()
     return [comment_view(c) for c in rows]
 
 

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import { formatDuration, type SubtitleInfo } from "../api";
 import { useI18n } from "../i18n";
 import {
-  CaptionsIcon, CheckIcon, ExitFullscreenIcon, FullscreenIcon, MuteIcon, PauseIcon, PlayIcon, VolumeIcon,
+  CaptionsIcon, CheckIcon, SettingsIcon, ExitFullscreenIcon, FullscreenIcon, MuteIcon, PauseIcon, PlayIcon, VolumeIcon,
 } from "./icons";
+import { attachMediaSource, mseSupported } from "./mediaSource";
 import { Spinner } from "./ui";
 
 interface Cue {
@@ -47,9 +48,15 @@ interface Props {
   subtitles: SubtitleInfo[];
   defaultSubtitle: string | null;
   poster?: string | null;
+  sourceHeight: number | null;
+  qualities: number[];
+  mseType: string | null; // MediaSource type of the converted stream at original quality
+  mseTypeConverted: string | null; // ... when re-encoded at a chosen resolution
 }
 
-export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, defaultSubtitle, poster }: Props) {
+export default function VideoPlayer({
+  movieId, mode, knownDuration, subtitles, defaultSubtitle, poster, sourceHeight, qualities, mseType, mseTypeConverted,
+}: Props) {
   const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -65,16 +72,22 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
   const [fullscreen, setFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [subMenu, setSubMenu] = useState(false);
+  const [qualityMenu, setQualityMenu] = useState(false);
+  const [quality, setQuality] = useState<number | null>(null); // null = original
+  const [viaMse, setViaMse] = useState(false);
+  const pendingSeek = useRef<number | null>(null);
   const [activeSub, setActiveSub] = useState<string | null>(defaultSubtitle);
   const [cues, setCues] = useState<Cue[]>([]);
   const [error, setError] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
 
-  const src = mode === "native"
+  // Converted = produced by ffmpeg (non-browser format, or a resolution was chosen).
+  const converted = mode === "transcode" || quality !== null;
+  const src = !converted
     ? `/api/movies/${movieId}/stream/video`
-    : `/api/movies/${movieId}/stream/video?start=${offset.toFixed(2)}`;
-  const duration = mode === "native" ? mediaDuration : knownDuration ?? 0;
-  const absTime = (mode === "transcode" ? offset : 0) + time;
+    : `/api/movies/${movieId}/stream/video?start=${offset.toFixed(2)}${quality ? `&quality=${quality}` : ""}`;
+  const duration = !converted ? mediaDuration : knownDuration ?? 0;
+  const absTime = (converted ? offset : 0) + time;
 
   // Pick the default subtitle once it becomes available.
   useEffect(() => {
@@ -105,18 +118,44 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
     v.play().catch(() => setPlaying(false));
   }, []);
 
-  // New source (first load or transcode seek): start playing, but only after a user
-  // gesture on this page; otherwise browsers block autoplay (and Firefox logs a warning).
+  // New source (first load, seek in a converted stream, resolution change).
+  // Converted streams are fed through the MediaSource API; native files use HTTP ranges.
+  // Playback only starts by itself after a user gesture (autoplay policy).
   useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
     setError(false);
     setTime(0);
+    const mime = quality === null ? mseType : mseTypeConverted;
+    let detach = () => {};
+    if (converted && mseSupported(mime)) {
+      setViaMse(true);
+      detach = attachMediaSource(v, src, mime, () => setError(true));
+    } else {
+      setViaMse(false);
+      v.src = src;
+    }
     if (hasUserActivation()) {
       setWaiting(true);
       play();
     } else {
       setWaiting(false);
     }
+    return detach;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, play]);
+
+  const chooseQuality = (q: number | null) => {
+    setQualityMenu(false);
+    if (q === quality) return;
+    const at = absTime;
+    if (q === null && mode === "native") {
+      pendingSeek.current = at; // back to the original file: resume at the same position
+    } else {
+      setOffset(Math.max(0, at));
+    }
+    setQuality(q);
+  };
 
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
@@ -129,12 +168,12 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
     const v = videoRef.current;
     if (!v || !duration) return;
     target = Math.max(0, Math.min(duration - 1, target));
-    if (mode === "native") {
+    if (!converted) {
       v.currentTime = target;
     } else {
       setOffset(target);
     }
-  }, [duration, mode]);
+  }, [duration, converted]);
 
   const nudgeControls = useCallback(() => {
     setShowControls(true);
@@ -143,6 +182,7 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
       if (videoRef.current && !videoRef.current.paused) {
         setShowControls(false);
         setSubMenu(false);
+        setQualityMenu(false);
       }
     }, 2800);
   }, []);
@@ -200,7 +240,7 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
     >
       <video
         ref={videoRef}
-        src={src}
+        data-delivery={converted ? (viaMse ? "mediasource" : "progressive") : "ranges"}
         poster={poster ?? undefined}
         playsInline
         preload="auto"
@@ -213,6 +253,12 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
         onCanPlay={() => setWaiting(false)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onDurationChange={(e) => isFinite(e.currentTarget.duration) && setMediaDuration(e.currentTarget.duration)}
+        onLoadedMetadata={(e) => {
+          if (pendingSeek.current !== null) {
+            e.currentTarget.currentTime = pendingSeek.current;
+            pendingSeek.current = null;
+          }
+        }}
         onProgress={(e) => {
           const b = e.currentTarget.buffered;
           if (b.length) setBuffered(b.end(b.length - 1));
@@ -279,9 +325,32 @@ export default function VideoPlayer({ movieId, mode, knownDuration, subtitles, d
             {formatDuration(absTime)}{duration ? ` / ${formatDuration(duration)}` : ""}
           </span>
           <div className="spacer" />
+          {qualities.length > 0 && (
+            <div className="sub-wrap">
+              <button className={`icon-btn ghost quality-btn ${quality ? "active" : ""}`} aria-label={t("player.quality")}
+                aria-haspopup="menu" aria-expanded={qualityMenu} onClick={() => { setQualityMenu((m) => !m); setSubMenu(false); }}>
+                <SettingsIcon />
+                <span className="quality-tag">{quality ? `${quality}p` : sourceHeight && sourceHeight >= 720 ? "HD" : "SD"}</span>
+              </button>
+              {qualityMenu && (
+                <div className="sub-menu" role="menu">
+                  <p>{t("player.quality")}</p>
+                  <button role="menuitemradio" aria-checked={quality === null} onClick={() => chooseQuality(null)}>
+                    {quality === null && <CheckIcon width={16} height={16} />}
+                    {t("player.original")}{sourceHeight ? ` (${sourceHeight}p)` : ""}
+                  </button>
+                  {qualities.map((q) => (
+                    <button key={q} role="menuitemradio" aria-checked={quality === q} onClick={() => chooseQuality(q)}>
+                      {quality === q && <CheckIcon width={16} height={16} />}{q}p
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="sub-wrap">
             <button className={`icon-btn ghost ${activeSub ? "active" : ""}`} aria-label={t("player.subtitles")}
-              aria-haspopup="menu" aria-expanded={subMenu} onClick={() => setSubMenu((s) => !s)}>
+              aria-haspopup="menu" aria-expanded={subMenu} onClick={() => { setSubMenu((s) => !s); setQualityMenu(false); }}>
               <CaptionsIcon />
             </button>
             {subMenu && (

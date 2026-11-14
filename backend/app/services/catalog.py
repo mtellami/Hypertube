@@ -185,3 +185,34 @@ def filter_sort(movies: list[Movie], *, searching: bool, genre: str | None, min_
         missing = [m for m in out if getattr(m, attr) is None]
         out = sorted(present, key=lambda m: getattr(m, attr), reverse=desc) + missing
     return out
+
+
+async def import_one(source: str, source_id: str, user_id: int) -> tuple[int, bool] | None:
+    """Fetch one item from a source and store it. Returns (movie_id, created) or None if not found."""
+    with SessionLocal() as db:
+        existing = db.scalar(select(Movie.id).where(Movie.source == source, Movie.source_id == source_id))
+    if existing:
+        return existing, False
+    async with http_client() as client:
+        if source == "archive":
+            item = await archive.fetch_one(client, source_id)
+        else:
+            item = await peertube.fetch_one(client, source_id, peertube.instances(get_settings().peertube_instances))
+    if item is None:
+        return None
+    movie_id = (await run_in_threadpool(_upsert, [item]))[0]
+
+    def mark():
+        with SessionLocal() as db:
+            movie = db.get(Movie, movie_id)
+            if movie.added_by_id is None:
+                movie.added_by_id = user_id
+                db.commit()
+    await run_in_threadpool(mark)
+    await enrich([movie_id])
+    return movie_id, True
+
+
+def forget_pools() -> None:
+    """Drop cached result lists (after a movie is added or deleted)."""
+    _pools.clear()

@@ -217,6 +217,8 @@ textarea { height: auto; padding: 12px 14px; resize: vertical; line-height: 1.5;
 .auth-switch { margin-top: 22px; text-align: center; color: var(--muted); font-size: 0.92rem; }
 .oauth-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .btn.oauth { height: 46px; border-radius: 12px; background: var(--surface-2); border-color: var(--line-strong); color: var(--text); }
+.btn.oauth.dc svg { color: #8c9eff; }
+.btn.oauth.gl svg { color: #fc8d4e; }
 .btn.oauth:hover { background: var(--surface-3); border-color: rgba(255, 255, 255, 0.22); }
 
 /* ---------- Library ---------- */
@@ -332,6 +334,9 @@ textarea { height: auto; padding: 12px 14px; resize: vertical; line-height: 1.5;
 .seekbar:hover .seek-thumb { transform: scale(1); }
 .seek-tooltip { position: absolute; bottom: 22px; translate: -50% 0; background: rgba(0, 0, 0, 0.85); padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-variant-numeric: tabular-nums; pointer-events: none; }
 .sub-wrap { position: relative; }
+.quality-btn { width: auto; padding: 0 8px; gap: 4px; display: inline-flex; border-radius: 999px; }
+.quality-tag { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; padding: 1px 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.16); }
+.quality-btn.active .quality-tag { background: var(--accent-grad); color: #fff; }
 .sub-menu { position: absolute; bottom: calc(100% + 10px); right: -40px; min-width: 190px; padding: 8px; background: rgba(17, 23, 42, 0.96); border: 1px solid var(--line-strong); border-radius: 12px; backdrop-filter: blur(12px); animation: pop 0.15s var(--ease); }
 .sub-menu p { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); padding: 6px 10px; }
 .sub-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px 9px 34px; position: relative; border: 0; background: none; border-radius: 8px; text-align: left; font-size: 0.88rem; }

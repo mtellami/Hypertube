@@ -121,7 +121,7 @@ def update_user(db: Session, user: User, data: dict) -> User:
         if key == "password":
             user.password_hash = hash_password(value)
         elif key == "profile_picture_url":
-            _remove_local_avatar(user)
+            remove_local_avatar(user)
             user.avatar_url = value
         else:
             setattr(user, key, value)
@@ -130,7 +130,7 @@ def update_user(db: Session, user: User, data: dict) -> User:
     return user
 
 
-def _remove_local_avatar(user: User) -> None:
+def remove_local_avatar(user: User) -> None:
     if user.avatar_url and user.avatar_url.startswith("/api/media/avatars/"):
         name = user.avatar_url.rsplit("/", 1)[-1]
         if re.match(r"^[A-Za-z0-9_-]+\.webp$", name):
@@ -167,7 +167,7 @@ def save_avatar(db: Session, user: User, raw: bytes) -> User:
 
     name = f"{secrets.token_urlsafe(18)}.webp"
     (avatars_dir() / name).write_bytes(out.getvalue())
-    _remove_local_avatar(user)
+    remove_local_avatar(user)
     user.avatar_url = f"/api/media/avatars/{name}"
     db.commit()
     db.refresh(user)

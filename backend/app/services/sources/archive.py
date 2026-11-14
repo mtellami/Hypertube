@@ -122,3 +122,14 @@ async def storage_web_seeds(client: httpx.AsyncClient, identifier: str) -> list[
     parent = directory.rsplit("/", 1)[0] + "/"
     hosts = data.get("workable_servers") or [h for h in (data.get("d1"), data.get("d2")) if h]
     return [f"https://{h}{parent}" for h in hosts if isinstance(h, str) and re.match(r"^[a-z0-9.-]+\.archive\.org$", h)][:3]
+
+
+IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$")
+
+
+async def fetch_one(client: httpx.AsyncClient, identifier: str) -> SourceItem | None:
+    """One item by identifier, only if it passes the same legality filters as search."""
+    if not IDENTIFIER_RE.match(identifier):
+        return None
+    items = await _query(client, f'({BASE_QUERY}) AND identifier:"{identifier}"', 1, "downloads desc")
+    return items[0] if items else None
