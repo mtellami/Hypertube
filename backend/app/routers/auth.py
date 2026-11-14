@@ -5,6 +5,7 @@ These endpoints report *expected* user errors (bad credentials, invalid fields) 
 request messages during normal use. The public REST API (users/movies/comments,
 oauth/token) uses standard HTTP status codes.
 """
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
@@ -26,6 +27,7 @@ from ..services.mailer import send_password_reset
 from ..services.users import FieldErrors, create_user, unique_username, validate_registration
 
 router = APIRouter(prefix="/api/auth", tags=["session"])
+log = logging.getLogger("hypertube.auth")
 STATE_COOKIE = "ht_oauth_state"
 
 
@@ -157,7 +159,22 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         profile = await oauth.fetch_profile(provider, code)
     except oauth.OAuthError:
         return _login_error("oauth_failed")
+    try:
+        user = _user_for_profile(db, provider, profile)
+    except Exception:  # never surface a 500 at the end of a provider redirect
+        db.rollback()
+        log.exception("OAuth sign-in failed for provider %s", provider)
+        return _login_error("oauth_failed")
+    if user is None:
+        return _login_error("oauth_no_email")
+    response = RedirectResponse(f"{get_settings().public_url}/", status_code=302)
+    response.delete_cookie(STATE_COOKIE, path="/api/auth/oauth")
+    set_session_cookie(response, user.id)
+    return response
 
+
+def _user_for_profile(db: Session, provider: str, profile: oauth.OAuthProfile) -> User | None:
+    """Find the account for a provider profile, link it by verified email, or create it."""
     identity = db.scalar(select(OAuthIdentity).where(
         OAuthIdentity.provider == provider, OAuthIdentity.provider_user_id == profile.provider_user_id))
     if identity:
@@ -170,15 +187,15 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
             except ValueError:
                 email = None
         if not email:
-            return _login_error("oauth_no_email")
+            return None
         # Providers only return verified addresses, so an existing account is linked.
         user = db.scalar(select(User).where(User.email == email))
         if user is None:
             user = User(
                 email=email,
                 username=unique_username(db, profile.username),
-                first_name=v.check_name(profile.first_name) if profile.first_name.strip() else "User",
-                last_name=v.check_name(profile.last_name) if profile.last_name.strip() else "User",
+                first_name=v.clean_name(profile.first_name, profile.username),
+                last_name=v.clean_name(profile.last_name, profile.username),
                 avatar_url=profile.avatar_url,
                 password_hash=None,
                 language="en",
@@ -187,8 +204,4 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
             db.flush()
         db.add(OAuthIdentity(user_id=user.id, provider=provider, provider_user_id=profile.provider_user_id))
         db.commit()
-
-    response = RedirectResponse(f"{get_settings().public_url}/", status_code=302)
-    response.delete_cookie(STATE_COOKIE, path="/api/auth/oauth")
-    set_session_cookie(response, user.id)
-    return response
+    return user

@@ -137,7 +137,7 @@ Only the subject's own suggestions were implemented, all keeping the same constr
 
 | Subject idea | What was built | Where |
 |---|---|---|
-| More OmniAuth strategies | **Discord** and **GitLab** login next to 42 and GitHub. Buttons appear once `DISCORD_*` / `GITLAB_*` are set in `.env` | `services/oauth_providers.py`, `pages/AuthPages.tsx` |
+| More OmniAuth strategies | **Discord** and **GitLab** login next to 42 and GitHub (verified). Buttons appear once `DISCORD_*` / `GITLAB_*` are set in `.env`. Provider display names are sanitized, never rejected | `services/oauth_providers.py`, `pages/AuthPages.tsx` |
 | Various video resolutions | Quality menu in the player: *Original* plus every standard height up to the source (1080/720/480/360p). FFmpeg re-encodes on the fly (`?quality=720`), and the playback position is kept when switching | `services/transcode.py`, `routers/stream.py`, `components/VideoPlayer.tsx` |
 | Stream via the MediaSource API | Converted streams (MKV…, or a chosen resolution) are fed to `<video>` through **Media Source Extensions**: the fMP4 response is read chunk by chunk and appended to a `SourceBuffer`, with back-pressure (≤ 90 s ahead) and buffer eviction. Native MP4/WebM still use HTTP ranges. The `data-delivery` attribute on `<video>` shows which is used | `components/mediaSource.ts` |
 | More API routes (add, delete movies…) | See below | `routers/movies.py`, `users.py`, `comments.py` |

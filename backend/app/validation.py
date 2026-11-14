@@ -22,6 +22,16 @@ def check_name(value: str) -> str:
     return value
 
 
+def clean_name(value: str | None, fallback: str = "User") -> str:
+    """Names coming from OAuth providers are not user input we can reject: strip what our
+    rules forbid (control characters, '<' and '>') and keep at most 64 characters."""
+    for candidate in (value, fallback, "User"):
+        cleaned = re.sub(r"[\x00-\x1f\x7f<>]", "", candidate or "").strip()[:64].strip()
+        if cleaned:
+            return cleaned
+    return "User"
+
+
 def check_email(value: str) -> str:
     try:
         return validate_email(value.strip(), check_deliverability=False).normalized.lower()
