@@ -35,6 +35,8 @@ Downloads, subtitles and avatars are stored in the `appdata` Docker volume (`/da
 
 `.env` is git-ignored. Never commit it.
 
+To host it publicly with HTTPS (free, Oracle Cloud), see **[DEPLOY.md](DEPLOY.md)**. It uses `docker-compose.prod.yml` (Caddy, no Mailpit), and the local setup above is unchanged.
+
 ## 2. Credentials and external services
 
 | Variable(s) | Needed for | How to get it |

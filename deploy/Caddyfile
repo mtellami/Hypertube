@@ -1,0 +1,11 @@
+# Caddy obtains and renews the HTTPS certificate for $DOMAIN automatically.
+{$DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy frontend:80 {
+		# send video bytes to the browser as soon as they are produced
+		flush_interval -1
+	}
+}
