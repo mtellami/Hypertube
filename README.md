@@ -35,6 +35,10 @@ Downloads, subtitles and avatars are stored in the `appdata` Docker volume (`/da
 
 `.env` is git-ignored. Never commit it.
 
+**Quick public link (free, no account):** with the stack running, start a Cloudflare quick tunnel:
+`cloudflared tunnel --url http://localhost:8080` (official binary from github.com/cloudflare/cloudflared).
+It prints a random `https://….trycloudflare.com` address that works while the command runs. Password login, the library, streaming and the API work through it. OAuth logins and reset emails stay tied to `localhost`.
+
 To host it publicly with HTTPS (free, Oracle Cloud), see **[DEPLOY.md](DEPLOY.md)**. It uses `docker-compose.prod.yml` (Caddy, no Mailpit), and the local setup above is unchanged.
 
 ## 2. Credentials and external services
