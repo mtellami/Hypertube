@@ -39,6 +39,19 @@ Downloads, subtitles and avatars are stored in the `appdata` Docker volume (`/da
 `cloudflared tunnel --url http://localhost:8080` (official binary from github.com/cloudflare/cloudflared).
 It prints a random `https://….trycloudflare.com` address that works while the command runs. Password login, the library, streaming and the API work through it. OAuth logins and reset emails stay tied to `localhost`.
 
+**Own domain through a Cloudflare named tunnel (current setup: https://hypertube.ynshost.com).**
+The same local stack is published at a fixed HTTPS address, with no open ports. OAuth works on both addresses:
+
+1. Domain on Cloudflare (free plan, nameservers switched at the registrar).
+2. One-time setup with the official `cloudflared` binary:
+   `cloudflared tunnel login`, then `cloudflared tunnel create hypertube`, then
+   `cloudflared tunnel route dns hypertube hypertube.<domain>`. Put the output of
+   `cloudflared tunnel token hypertube` in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`.
+3. In `.env`: `EXTRA_PUBLIC_URLS=https://hypertube.<domain>`. Add `https://hypertube.<domain>/api/auth/oauth/<provider>/callback` to each OAuth app.
+4. Start with `docker compose --profile tunnel up -d`. Plain `docker compose up -d` keeps it local-only.
+
+The site is online while the Mac and Docker are running.
+
 To host it publicly with HTTPS (free, Oracle Cloud), see **[DEPLOY.md](DEPLOY.md)**. It uses `docker-compose.prod.yml` (Caddy, no Mailpit), and the local setup above is unchanged.
 
 ## 2. Credentials and external services
