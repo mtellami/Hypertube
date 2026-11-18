@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://hypertube:hypertube@db:5432/hypertube"
     secret_key: str
     public_url: str = "http://localhost:8080"  # URL users open in their browser
+    # Other addresses the same instance is reachable at (comma-separated), e.g.
+    # https://hypertube.example.com behind a tunnel. Links and OAuth redirects use
+    # whichever allowed address the request came through.
+    extra_public_urls: str = ""
     internal_url: str = "http://127.0.0.1:8000"  # how ffmpeg reaches this backend
     session_days: int = 7
     api_token_minutes: int = 60
@@ -50,8 +54,20 @@ class Settings(BaseSettings):
     peertube_instances: str = "video.blender.org"
 
     @property
-    def secure_cookies(self) -> bool:
-        return self.public_url.startswith("https://")
+    def allowed_public_urls(self) -> list[str]:
+        urls = [self.public_url] + [u for u in self.extra_public_urls.split(",")]
+        return [u.strip().rstrip("/") for u in urls if u.strip()]
+
+
+def base_url(request) -> str:
+    """Public base URL for this request, only if it is in the allowlist (prevents Host-header
+    injection into reset links and OAuth redirects); otherwise PUBLIC_URL."""
+    s = get_settings()
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme).split(",")[0].strip()
+    host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(",")[0].strip()
+    candidate = f"{proto}://{host}".rstrip("/")
+    allowed = s.allowed_public_urls
+    return candidate if candidate in allowed else allowed[0]
 
 
 @lru_cache

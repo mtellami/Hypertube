@@ -60,15 +60,15 @@ def is_configured(provider: str) -> bool:
     return bool(cid and secret)
 
 
-def redirect_uri(provider: str) -> str:
-    return f"{get_settings().public_url}/api/auth/oauth/{provider}/callback"
+def redirect_uri(provider: str, base: str) -> str:
+    return f"{base}/api/auth/oauth/{provider}/callback"
 
 
-def authorize_url(provider: str, state: str) -> str:
+def authorize_url(provider: str, state: str, base: str) -> str:
     cid, _ = credentials(provider)
     params = {
         "client_id": cid,
-        "redirect_uri": redirect_uri(provider),
+        "redirect_uri": redirect_uri(provider, base),
         "response_type": "code",
         "scope": PROVIDERS[provider]["scope"],
         "state": state,
@@ -83,7 +83,7 @@ def _split_name(full: str | None, fallback: str) -> tuple[str, str]:
     return parts[0][:64], (parts[1] if len(parts) > 1 else parts[0])[:64]
 
 
-async def fetch_profile(provider: str, code: str) -> OAuthProfile:
+async def fetch_profile(provider: str, code: str, base: str) -> OAuthProfile:
     cid, secret = credentials(provider)
     async with httpx.AsyncClient(timeout=15) as client:
         try:
@@ -94,7 +94,7 @@ async def fetch_profile(provider: str, code: str) -> OAuthProfile:
                     "client_id": cid,
                     "client_secret": secret,
                     "code": code,
-                    "redirect_uri": redirect_uri(provider),
+                    "redirect_uri": redirect_uri(provider, base),
                 },
                 headers={"Accept": "application/json"},
             )

@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import validation as v
-from ..config import get_settings
+from ..config import base_url, get_settings
 from ..db import get_db
 from ..models import OAuthIdentity, PasswordResetToken, User
 from ..schemas import private_user
@@ -57,7 +57,7 @@ async def register(request: Request, db: Session = Depends(get_db)):
         return _fail("Please fix the highlighted fields.", exc.errors)
     user = create_user(db, clean)
     response = JSONResponse({"ok": True, "user": private_user(user)}, status_code=201)
-    set_session_cookie(response, user.id)
+    set_session_cookie(response, user.id, request)
     return response
 
 
@@ -71,7 +71,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
     if not verify_password(password, user.password_hash if user else None) or user is None:
         return _fail("Invalid username or password.")
     response = JSONResponse({"ok": True, "user": private_user(user)})
-    set_session_cookie(response, user.id)
+    set_session_cookie(response, user.id, request)
     return response
 
 
@@ -95,7 +95,7 @@ async def forgot_password(request: Request, db: Session = Depends(get_db)):
         db.add(PasswordResetToken(user_id=user.id, token_hash=sha256(token),
                                   expires_at=datetime.now(timezone.utc) + timedelta(hours=1)))
         db.commit()
-        link = f"{get_settings().public_url}/reset-password?token={token}"
+        link = f"{base_url(request)}/reset-password?token={token}"
         send_password_reset(user.email, user.first_name, user.language, link)
     # Same answer whether or not the account exists (no user enumeration).
     return {"ok": True}
@@ -120,7 +120,7 @@ async def reset_password(request: Request, db: Session = Depends(get_db)):
     record.used_at = now
     db.commit()
     response = JSONResponse({"ok": True, "user": private_user(user)})
-    set_session_cookie(response, user.id)
+    set_session_cookie(response, user.id, request)
     return response
 
 
@@ -130,46 +130,47 @@ def providers():
     return {"providers": [p for p in oauth.PROVIDERS if oauth.is_configured(p)]}
 
 
-def _login_error(code: str) -> RedirectResponse:
-    response = RedirectResponse(f"{get_settings().public_url}/login?error={code}", status_code=302)
+def _login_error(code: str, request: Request) -> RedirectResponse:
+    response = RedirectResponse(f"{base_url(request)}/login?error={code}", status_code=302)
     response.delete_cookie(STATE_COOKIE, path="/api/auth/oauth")
     return response
 
 
 @router.get("/oauth/{provider}/login")
-def oauth_login(provider: str):
+def oauth_login(provider: str, request: Request):
     if provider not in oauth.PROVIDERS or not oauth.is_configured(provider):
-        return _login_error("oauth_unavailable")
+        return _login_error("oauth_unavailable", request)
     state = random_token(24)
-    response = RedirectResponse(oauth.authorize_url(provider, state), status_code=302)
+    base = base_url(request)
+    response = RedirectResponse(oauth.authorize_url(provider, state, base), status_code=302)
     response.set_cookie(STATE_COOKIE, f"{provider}:{state}", max_age=600, httponly=True,
-                        secure=get_settings().secure_cookies, samesite="lax", path="/api/auth/oauth")
+                        secure=base.startswith("https://"), samesite="lax", path="/api/auth/oauth")
     return response
 
 
 @router.get("/oauth/{provider}/callback")
 async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db)):
     if provider not in oauth.PROVIDERS or not oauth.is_configured(provider):
-        return _login_error("oauth_unavailable")
+        return _login_error("oauth_unavailable", request)
     code, state = request.query_params.get("code"), request.query_params.get("state")
     expected = request.cookies.get(STATE_COOKIE)
     if not code or not state or expected != f"{provider}:{state}":
-        return _login_error("oauth_state")
+        return _login_error("oauth_state", request)
     try:
-        profile = await oauth.fetch_profile(provider, code)
+        profile = await oauth.fetch_profile(provider, code, base_url(request))
     except oauth.OAuthError:
-        return _login_error("oauth_failed")
+        return _login_error("oauth_failed", request)
     try:
         user = _user_for_profile(db, provider, profile)
     except Exception:  # never surface a 500 at the end of a provider redirect
         db.rollback()
         log.exception("OAuth sign-in failed for provider %s", provider)
-        return _login_error("oauth_failed")
+        return _login_error("oauth_failed", request)
     if user is None:
-        return _login_error("oauth_no_email")
-    response = RedirectResponse(f"{get_settings().public_url}/", status_code=302)
+        return _login_error("oauth_no_email", request)
+    response = RedirectResponse(f"{base_url(request)}/", status_code=302)
     response.delete_cookie(STATE_COOKIE, path="/api/auth/oauth")
-    set_session_cookie(response, user.id)
+    set_session_cookie(response, user.id, request)
     return response
 
 

@@ -9,7 +9,7 @@ from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from .config import get_settings
+from .config import base_url, get_settings
 from .db import get_db
 from .models import User
 
@@ -63,14 +63,14 @@ def decode_token(token: str, kind: str) -> int | None:
         return None
 
 
-def set_session_cookie(response: Response, user_id: int) -> None:
+def set_session_cookie(response: Response, user_id: int, request: Request) -> None:
     s = get_settings()
     response.set_cookie(
         SESSION_COOKIE,
         create_token(user_id, "session", timedelta(days=s.session_days)),
         max_age=s.session_days * 86400,
         httponly=True,
-        secure=s.secure_cookies,
+        secure=base_url(request).startswith("https://"),
         samesite="lax",
         path="/",
     )
