@@ -28,8 +28,8 @@ Hypertube is a self-hosted movie discovery and streaming application. It searche
 ## Run locally
 
 ```sh
-git clone https://github.com/mtellami/repository.git
-cd repository
+git clone https://github.com/mtellami/Hypertube.git
+cd Hypertube
 cp .env.example .env
 ```
 
@@ -42,7 +42,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 Start the application:
 
 ```sh
-docker compose up --build
+make dev
 ```
 
 - Application: http://localhost:8080
@@ -53,26 +53,30 @@ Database migrations run when the backend starts. Docker volumes persist database
 
 ## Configuration
 
-See [.env.example](.env.example) for all settings. Optional integrations include `TMDB_API_KEY`, OpenSubtitles credentials, and OAuth provider credentials. Local password-reset emails use Mailpit; configure SMTP for delivery to real inboxes.
+See [.env.example](.env.example) for setup and optional integration settings. Optional integrations include `TMDB_API_KEY`, OpenSubtitles credentials, and OAuth provider credentials. Local password-reset emails use Mailpit; configure SMTP for delivery to real inboxes.
 
-`PUBLIC_URL` sets the application address used by OAuth and password-reset links. Use `EXTRA_PUBLIC_URLS` for additional addresses and register the corresponding callback URLs with each OAuth provider. `PEERTUBE_INSTANCES` selects video sources, and `UNWATCHED_RETENTION_DAYS` controls cached download retention.
+`PUBLIC_URL` sets the application address used by OAuth and password-reset links. Use `EXTRA_PUBLIC_URLS` for additional addresses and register the corresponding callback URLs with each OAuth provider. Advanced overrides can be added to `.env`: `PEERTUBE_INSTANCES` selects video sources (default `video.blender.org`), `STREAM_READY_BYTES` sets the playback buffer (default 8388608 bytes), and `UNWATCHED_RETENTION_DAYS` sets cache retention (default 30 days).
 
 ## Run in production
 
 Set `PUBLIC_URL` to your public application address and configure a real SMTP server in `.env`. `HTTP_PORT` selects the exposed HTTP port (8080 in the example environment). For HTTPS, place the application behind your own TLS reverse proxy.
 
 ```sh
-docker compose -f docker-compose.prod.yml up -d --build
+make prod
 ```
 
 The production stack runs PostgreSQL, the backend, and nginx with persistent volumes. The local development stack additionally includes Mailpit.
 
+The default `docker-compose.yml` runs production; `docker-compose-dev.yml` runs local development. Use `make down` / `make logs` for production and `make dev-down` / `make dev-logs` for development. Stopping a stack keeps its data. Run `make` to list commands.
+
 ## Development checks
+
+Use Node.js 22 and the pnpm version pinned in `frontend/package.json`.
 
 ```sh
 cd frontend
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 ```
 
 With Python 3.12 and the backend requirements installed, run from `backend/`:
@@ -82,7 +86,7 @@ ruff check app alembic tests
 python -m unittest discover -s tests -v
 ```
 
-Install the check tools with `python -m pip install -r requirements-dev.txt`. CI runs these checks, validates both Compose configurations, and checks database migrations against PostgreSQL.
+`requirements-dev.txt` adds Ruff for linting to the runtime dependencies; production installs only `requirements.txt`. Install the check tools with `python -m pip install -r requirements-dev.txt`. CI runs these checks, validates both Compose configurations, and checks database migrations against PostgreSQL.
 
 ## Project structure
 

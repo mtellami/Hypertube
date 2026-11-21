@@ -1,3 +1,5 @@
+name: hypertube-prod
+
 services:
   db:
     image: postgres:16-alpine
@@ -14,12 +16,6 @@ services:
       timeout: 3s
       retries: 20
 
-  mailpit: # development mail catcher, web UI on http://localhost:8025
-    image: axllent/mailpit:v1.21
-    restart: unless-stopped
-    ports:
-      - "8025:8025"
-
   backend:
     build: ./backend
     restart: unless-stopped
@@ -27,11 +23,12 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hypertube}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-hypertube}
       DATA_DIR: /data
+      PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env}
     volumes:
       - appdata:/data
     ports:
-      - "6881:6881" # BitTorrent (TCP)
-      - "6881:6881/udp" # BitTorrent (uTP / DHT)
+      - "6881:6881"
+      - "6881:6881/udp"
     depends_on:
       db:
         condition: service_healthy
@@ -40,7 +37,7 @@ services:
     build: ./frontend
     restart: unless-stopped
     ports:
-      - "${HTTP_PORT:-8080}:80"
+      - "${HTTP_PORT:-80}:80"
     depends_on:
       - backend
 
