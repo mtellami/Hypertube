@@ -1,6 +1,6 @@
 # Production stack for a public server (see DEPLOY.md).
 #   docker compose -f docker-compose.prod.yml up -d --build
-# Differences with docker-compose.yml (local / evaluation):
+# Differences with docker-compose.yml (local development):
 #   * Caddy in front: automatic HTTPS certificates for $DOMAIN, only ports 80/443 exposed
 #   * no Mailpit: configure a real SMTP server in .env
 #   * the frontend (nginx) is not exposed directly

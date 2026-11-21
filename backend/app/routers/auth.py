@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import validation as v
-from ..config import base_url, get_settings
+from ..config import base_url
 from ..db import get_db
 from ..models import OAuthIdentity, PasswordResetToken, User
 from ..schemas import private_user

@@ -24,3 +24,9 @@ downloads/
 
 # Local helper binaries
 .tools/
+
+# Generated checks and build caches
+*.tsbuildinfo
+.ruff_cache/
+.coverage
+htmlcov/

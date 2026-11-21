@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Walk through the Hypertube REST API (useful during the evaluation).
+# Walk through the Hypertube REST API.
 # Usage: ./scripts/api_demo.sh <username> <password> [base_url]
 #   or:  CLIENT_ID=... CLIENT_SECRET=... ./scripts/api_demo.sh
 # Requires curl; pretty-prints with python3 when available.
@@ -74,12 +74,12 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" "$BASE/users"
 show "DELETE $BASE/movies/$MOVIE_ID   (catalog film, not imported by you -> 403)"
 curl -s -w "\nHTTP %{http_code}\n" -X DELETE -H "$AUTH" "$BASE/movies/$MOVIE_ID"
 
-# ---------------------------------------------------------------- bonus routes
-show "GET $BASE/movies/search?q=sintel   (bonus)"
+# ---------------------------------------------------------------- additional routes
+show "GET $BASE/movies/search?q=sintel"
 curl -s -H "$AUTH" "$BASE/movies/search?q=sintel" | head -c 500; echo " ..."
 
 IMPORT_ID="${IMPORT_ID:-plan.-9.-from.-outer.-space.-1957}"
-show "POST $BASE/movies   (bonus: import a film from a source; 201, or 409 if it already exists)"
+show "POST $BASE/movies   (import a film from a source; 201, or 409 if it already exists)"
 curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$AUTH" -H "Content-Type: application/json" \
   -d "{\"source\":\"archive\",\"source_id\":\"$IMPORT_ID\"}" "$BASE/movies"
 
@@ -89,10 +89,10 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$AUTH" -H "Content-Typ
 curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"source":"youtube","source_id":"x"}' "$BASE/movies"
 
-show "GET $BASE/comments?page=1&limit=2   (bonus: pagination, total in X-Total-Count)"
+show "GET $BASE/comments?page=1&limit=2   (pagination, total in X-Total-Count)"
 curl -s -D - -o /dev/null -H "$AUTH" "$BASE/comments?page=1&limit=2" | grep -i x-total-count
 
-show "GET $BASE/users/$OTHER/comments   (bonus)"
+show "GET $BASE/users/$OTHER/comments"
 curl -s -H "$AUTH" "$BASE/users/$OTHER/comments" | head -c 300; echo " ..."
 
 show "DELETE $BASE/users/$OTHER   (someone else's account -> 403)"
