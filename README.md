@@ -22,7 +22,7 @@ Hypertube is a self-hosted movie discovery and streaming application. It searche
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2, Alembic |
 | Database | PostgreSQL 16 |
 | Streaming | libtorrent, FFmpeg, ffprobe, Media Source Extensions |
-| Infrastructure | Docker Compose, nginx, Caddy for production HTTPS |
+| Infrastructure | Docker Compose, nginx |
 | Development email | Mailpit |
 
 ## Run locally
@@ -57,7 +57,15 @@ See [.env.example](.env.example) for all settings. Optional integrations include
 
 `PUBLIC_URL` sets the application address used by OAuth and password-reset links. Use `EXTRA_PUBLIC_URLS` for additional addresses and register the corresponding callback URLs with each OAuth provider. `PEERTUBE_INSTANCES` selects video sources, and `UNWATCHED_RETENTION_DAYS` controls cached download retention.
 
-For production HTTPS and SMTP configuration, see [DEPLOY.md](DEPLOY.md).
+## Run in production
+
+Set `PUBLIC_URL` to your public application address and configure a real SMTP server in `.env`. `HTTP_PORT` selects the exposed HTTP port (8080 in the example environment). For HTTPS, place the application behind your own TLS reverse proxy.
+
+```sh
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+The production stack runs PostgreSQL, the backend, and nginx with persistent volumes. The local development stack additionally includes Mailpit.
 
 ## Development checks
 
@@ -83,6 +91,4 @@ backend/app/        API routes, authentication, catalog, and streaming services
 backend/alembic/    Database migrations
 backend/tests/      Backend regression checks
 frontend/src/       React pages, components, API client, and translations
-deploy/             Production reverse-proxy configuration
-scripts/            REST API walkthrough
 ```

@@ -44,19 +44,6 @@ services:
     depends_on:
       - backend
 
-  # Optional: publish the site at a domain through a Cloudflare Tunnel.
-  # Started only with:  docker compose --profile tunnel up -d
-  # CLOUDFLARE_TUNNEL_TOKEN comes from `cloudflared tunnel token <name>` (see README).
-  tunnel:
-    image: cloudflare/cloudflared:2026.11.0
-    restart: unless-stopped
-    command: tunnel --no-autoupdate --url http://frontend:80 run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
-    depends_on:
-      - frontend
-    profiles: ["tunnel"]
-
 volumes:
   pgdata:
   appdata:

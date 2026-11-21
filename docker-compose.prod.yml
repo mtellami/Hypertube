@@ -1,9 +1,5 @@
-# Production stack for a public server (see DEPLOY.md).
-#   docker compose -f docker-compose.prod.yml up -d --build
-# Differences with docker-compose.yml (local development):
-#   * Caddy in front: automatic HTTPS certificates for $DOMAIN, only ports 80/443 exposed
-#   * no Mailpit: configure a real SMTP server in .env
-#   * the frontend (nginx) is not exposed directly
+# Production stack: configure PUBLIC_URL and SMTP settings in .env.
+# docker compose -f docker-compose.prod.yml up -d --build
 name: hypertube-prod
 
 services:
@@ -29,7 +25,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hypertube}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-hypertube}
       DATA_DIR: /data
-      PUBLIC_URL: https://${DOMAIN:?Set DOMAIN in .env}
+      PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env}
     volumes:
       - appdata:/data
     ports:
@@ -42,27 +38,11 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
     depends_on:
       - backend
-
-  caddy:
-    image: caddy:2.8-alpine
-    restart: unless-stopped
-    environment:
-      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # HTTP/3
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - frontend
 
 volumes:
   pgdata:
   appdata:
-  caddy_data:
-  caddy_config:

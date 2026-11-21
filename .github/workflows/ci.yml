@@ -69,7 +69,7 @@ jobs:
     env:
       SECRET_KEY: ci-only-signing-key-not-for-deployment
       POSTGRES_PASSWORD: ci-only-password
-      DOMAIN: video.example.com
+      PUBLIC_URL: https://video.example.com
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
