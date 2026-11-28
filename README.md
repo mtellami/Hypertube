@@ -2,6 +2,14 @@
 
 Hypertube is a self-hosted movie discovery and streaming application. It searches Internet Archive and configurable PeerTube instances, downloads videos over BitTorrent, and starts playback before downloads finish.
 
+## Design
+
+[![Hypertube design](https://img.shields.io/badge/Hypertube_design-open-7c5cff?style=for-the-badge)](design/Hypertube%20Preview.pdf)
+
+The design covers 15 desktop and mobile screens, including account access, library search, movie details, playback, and settings. [Open the editable FigCraft file](design/Hypertube.figcraft).
+
+Sample film artwork is by Blender Studio and the Blender Foundation. The artwork is cropped and shown in the app layout. [Blender Open Movies](https://studio.blender.org/films/) · [Spring poster](https://commons.wikimedia.org/wiki/File:Spring2019AlphaPosterBlender.jpg) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
 ## Features
 
 - Search a combined video library with sorting, genre, year, and rating filters and infinite scrolling.
