@@ -51,6 +51,10 @@ make dev
 
 Database migrations run when the backend starts. Docker volumes persist database records, downloads, subtitles, and avatars.
 
+The frontend uses React, Vite, and Tailwind CSS v4. Use utilities and responsive/state variants for component styling; shared button and form-control styles live in `frontend/src/components/ui-styles.ts`. `frontend/src/styles/global.css` contains only theme tokens, base styles, breakpoint definitions, keyframes, and custom gradient utilities.
+
+Server state uses TanStack Query, auth/settings forms use React Hook Form with Zod, menus use Radix Dropdown Menu, and translations use react-i18next. Query caches are scoped to the signed-in user and language. Run frontend regression tests with `pnpm --dir frontend test` and the production build with `pnpm --dir frontend build`.
+
 ## Configuration
 
 See [.env.example](.env.example) for setup and optional integration settings. Optional integrations include `TMDB_API_KEY`, OpenSubtitles credentials, and OAuth provider credentials. Local password-reset emails use Mailpit; configure SMTP for delivery to real inboxes.
@@ -68,6 +72,8 @@ make prod
 The production stack runs PostgreSQL, the backend, and nginx with persistent volumes. The local development stack additionally includes Mailpit.
 
 The default `docker-compose.yml` runs production; `docker-compose-dev.yml` runs local development. Use `make down` / `make logs` for production and `make dev-down` / `make dev-logs` for development. Stopping a stack keeps its data. Run `make` to list commands.
+
+Run `make clean` to remove both development and production containers, their named and anonymous volumes, and their Compose networks, including orphaned containers belonging to those projects. This deletes saved database records, downloads, subtitles, and avatars. Docker images and unrelated Docker projects are kept.
 
 ## Development checks
 

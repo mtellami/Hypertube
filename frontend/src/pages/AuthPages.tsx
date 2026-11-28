@@ -1,70 +1,93 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, type FormResult, type Lang } from "../api";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  loginSchema,
+  registrationSchema,
+  forgotSchema,
+  passwordSchema,
+  applyServerErrors,
+  type LoginValues,
+  type RegistrationValues,
+  type ForgotValues,
+  type PasswordValues,
+} from "../forms";
+import { usePostersQuery, useOAuthProvidersQuery } from "../queries";
+import { buttonStyles } from "../components/ui-styles";
+import { useState, type ReactNode } from "react";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+import { api, type FormResult } from "../api";
 import { useAuth } from "../auth";
-import { DiscordIcon, FortyTwoIcon, GithubIcon, GitlabIcon } from "../components/icons";
+import { SiDiscord, Si42, SiGithub, SiGitlab } from "react-icons/si";
 import { Alert, Field, SelectField, Spinner } from "../components/ui";
-import { LANGUAGES, isLang, useI18n, type TFunction } from "../i18n";
-
-// --- client-side validation (mirrors the server rules) ------------------------
-export const rules = {
-  email: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()),
-  username: (v: string) => /^[A-Za-z0-9_.-]{3,32}$/.test(v.trim()),
-  name: (v: string) => v.trim().length >= 1 && v.trim().length <= 64 && !/[<>]/.test(v),
-  password: (v: string) => v.length >= 8 && v.length <= 128 && /[A-Za-z]/.test(v) && /\d/.test(v),
-};
-
-/** Server messages are English; show our localized message for the same field when we know it. */
-export function localizeFieldErrors(fields: Record<string, string> | undefined, t: TFunction) {
-  const out: Record<string, string> = {};
-  for (const [k, msg] of Object.entries(fields ?? {})) {
-    if (/taken|already/i.test(msg)) out[k] = msg;
-    else if (k === "email") out[k] = t("err.email");
-    else if (k === "username") out[k] = t("err.username");
-    else if (k === "first_name" || k === "last_name") out[k] = t("err.name");
-    else if (k === "password") out[k] = /common/i.test(msg) ? msg : t("err.password");
-    else out[k] = msg;
-  }
-  return out;
-}
+import { LANGUAGES, isLang, useI18n } from "../i18n";
 
 function PosterWall() {
-  const [posters, setPosters] = useState<string[]>([]);
-  useEffect(() => {
-    const ctrl = new AbortController();
-    api<{ cover_url: string | null }[]>("/movies", { signal: ctrl.signal })
-      .then((list) => setPosters(list.map((m) => m.cover_url).filter((u): u is string => !!u).slice(0, 24)))
-      .catch(() => undefined);
-    return () => ctrl.abort();
-  }, []);
-  if (!posters.length) return <div className="poster-wall empty" aria-hidden="true" />;
+  const { data } = usePostersQuery();
+  const posters = (data ?? [])
+    .map((m) => m.cover_url)
+    .filter((url): url is string => !!url)
+    .slice(0, 24);
+  if (!posters.length)
+    return (
+      <div
+        className="poster-wall [transform:rotate(-8deg)_scale(1.15)] [&.empty]:bg-auth-glow absolute inset-[-40px] grid grid-cols-[repeat(4,_1fr)] gap-3.5 opacity-80 empty"
+        aria-hidden="true"
+      />
+    );
   const cols = [0, 1, 2, 3].map((c) => posters.filter((_, i) => i % 4 === c));
   return (
-    <div className="poster-wall" aria-hidden="true">
+    <div
+      className="poster-wall [transform:rotate(-8deg)_scale(1.15)] [&.empty]:bg-auth-glow absolute inset-[-40px] grid grid-cols-[repeat(4,_1fr)] gap-3.5 opacity-80"
+      aria-hidden="true"
+    >
       {cols.map((col, i) => (
-        <div key={i} className={`wall-col ${i % 2 ? "down" : "up"}`}>
-          {[...col, ...col].map((src, j) => <img key={j} src={src} alt="" referrerPolicy="no-referrer" />)}
+        <div
+          key={i}
+          className={`wall-col animate-[drift-up_70s_linear_infinite] [&.down]:[animation-name:drift-down] [&_img]:w-full [&_img]:aspect-[2/3] [&_img]:object-cover [&_img]:rounded-[12px] [&_img]:bg-surface-raised [&_img]:[filter:saturate(1.1)] grid gap-3.5 content-start ${i % 2 ? "down" : "up"}`}
+        >
+          {[...col, ...col].map((src, j) => (
+            <img key={j} src={src} alt="" referrerPolicy="no-referrer" />
+          ))}
         </div>
       ))}
     </div>
   );
 }
 
-function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+function AuthShell({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
   const { t } = useI18n();
   return (
-    <div className="auth-page">
-      <section className="auth-art">
+    <div className="auth-page tablet:grid-cols-[1fr] min-h-screen grid grid-cols-[1.1fr_1fr]">
+      <section className="auth-art after:content-[''] after:absolute after:inset-0 after:bg-auth-overlay tablet:hidden relative overflow-hidden bg-[#04060d]">
         <PosterWall />
-        <div className="auth-art-copy">
+        <div
+          className={`
+          auth-art-copy [&_h2]:text-[clamp(2rem,_3.6vw,_3.2rem)] [&_h2]:font-bold [&_h2]:mb-3.5
+          [&_p]:text-secondary [&_p]:text-[1.05rem] absolute z-[2] left-[clamp(28px,_6vw,_72px)] right-7
+          bottom-[clamp(40px,_9vh,_90px)] max-w-130
+        `}
+        >
           <h2>{t("auth.hero_title")}</h2>
           <p>{t("auth.hero_sub")}</p>
         </div>
       </section>
-      <section className="auth-panel">
-        <div className="auth-card">
+      <section className="grid place-items-center p-[calc(var(--header-h)_+_24px)_var(--gutter)_48px]">
+        <div className="auth-card animate-[rise_0.5s_var(--ease)] [&_h1]:text-[clamp(1.7rem,_3vw,_2.2rem)] [&_h1]:mb-2 [&_.alert]:mb-4 w-full max-w-110">
           <h1>{title}</h1>
-          <p className="auth-sub">{subtitle}</p>
+          <p className="text-muted mb-6.5">{subtitle}</p>
           {children}
         </div>
       </section>
@@ -75,32 +98,64 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle: str
 function OAuthButtons() {
   const { t } = useI18n();
   // 42 and GitHub are always offered; extra providers appear once configured on the server.
-  const [extra, setExtra] = useState<string[]>([]);
-  useEffect(() => {
-    const ctrl = new AbortController();
-    api<{ providers: string[] }>("/auth/oauth/providers", { signal: ctrl.signal })
-      .then((r) => setExtra(r.providers.filter((p) => p === "discord" || p === "gitlab")))
-      .catch(() => undefined);
-    return () => ctrl.abort();
-  }, []);
+  const { data } = useOAuthProvidersQuery();
+  const extra = data?.providers ?? [];
   return (
     <>
-      <div className="divider"><span>{t("auth.or")}</span></div>
-      <div className="oauth-buttons">
-        <a className="btn oauth ft" href="/api/auth/oauth/42/login"><FortyTwoIcon width={22} height={16} />{t("auth.with_42")}</a>
-        <a className="btn oauth gh" href="/api/auth/oauth/github/login"><GithubIcon />{t("auth.with_github")}</a>
+      <div
+        className={`
+        divider [margin:22px_0_16px] before:content-[''] before:flex-1 before:h-[1px]
+        before:[background:var(--line-strong)] after:content-[''] after:flex-1 after:h-[1px]
+        after:[background:var(--line-strong)] flex items-center gap-3.5 text-muted text-[0.8rem] uppercase
+        tracking-[0.1em]
+      `}
+      >
+        <span>{t("auth.or")}</span>
+      </div>
+      <div className="oauth-buttons mobile:grid-cols-[1fr] grid grid-cols-[1fr_1fr] gap-2.5">
+        <a
+          className={`${buttonStyles({ variant: "oauth" })} ft`}
+          href="/api/auth/oauth/42/login"
+        >
+          <Si42 size={22} style={{ height: 16 }} />
+          {t("auth.with_42")}
+        </a>
+        <a
+          className={`${buttonStyles({ variant: "oauth" })} gh`}
+          href="/api/auth/oauth/github/login"
+        >
+          <SiGithub />
+          {t("auth.with_github")}
+        </a>
         {extra.includes("discord") && (
-          <a className="btn oauth dc" href="/api/auth/oauth/discord/login"><DiscordIcon />{t("auth.with_provider", { p: "Discord" })}</a>
+          <a
+            className={`${buttonStyles({ variant: "oauth" })} dc`}
+            href="/api/auth/oauth/discord/login"
+          >
+            <SiDiscord />
+            {t("auth.with_provider", { p: "Discord" })}
+          </a>
         )}
         {extra.includes("gitlab") && (
-          <a className="btn oauth gl" href="/api/auth/oauth/gitlab/login"><GitlabIcon />{t("auth.with_provider", { p: "GitLab" })}</a>
+          <a
+            className={`${buttonStyles({ variant: "oauth" })} gl`}
+            href="/api/auth/oauth/gitlab/login"
+          >
+            <SiGitlab />
+            {t("auth.with_provider", { p: "GitLab" })}
+          </a>
         )}
       </div>
     </>
   );
 }
 
-const OAUTH_ERRORS = ["oauth_unavailable", "oauth_state", "oauth_failed", "oauth_no_email"] as const;
+const OAUTH_ERRORS = [
+  "oauth_unavailable",
+  "oauth_state",
+  "oauth_failed",
+  "oauth_no_email",
+] as const;
 
 export function Login() {
   const { t } = useI18n();
@@ -108,51 +163,85 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting: busy },
+  } = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema(t)),
+    defaultValues: { username: "", password: "" },
+  });
   const [error, setError] = useState<string | null>(() => {
     const code = params.get("error");
-    return code && (OAUTH_ERRORS as readonly string[]).includes(code) ? t(`err.${code}` as "err.oauth_failed") : null;
+    return code && (OAUTH_ERRORS as readonly string[]).includes(code)
+      ? t(`err.${code}` as "err.oauth_failed")
+      : null;
   });
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const errs: Record<string, string> = {};
-    if (!username.trim()) errs.username = t("err.required");
-    if (!password) errs.password = t("err.required");
-    setErrors(errs);
-    if (Object.keys(errs).length) return;
-    setBusy(true);
+  const submit = async (values: LoginValues) => {
     setError(null);
     try {
-      const r = await api<FormResult>("/auth/login", { method: "POST", json: { username: username.trim(), password } });
+      const r = await api<FormResult>("/auth/login", {
+        method: "POST",
+        json: values,
+      });
       if (r.ok && r.user) {
         setUser(r.user);
         const from = (location.state as { from?: string } | null)?.from;
-        navigate(from && from.startsWith("/") ? from : "/", { replace: true });
+        navigate(
+          from && from.startsWith("/") && !from.startsWith("//") ? from : "/",
+          { replace: true },
+        );
       } else setError(r.error ?? t("err.generic"));
     } catch {
       setError(t("err.generic"));
-    } finally {
-      setBusy(false);
     }
   };
 
   return (
     <AuthShell title={t("auth.welcome")} subtitle={t("auth.login_sub")}>
       {error && <Alert>{error}</Alert>}
-      <form onSubmit={submit} noValidate className="form">
-        <Field label={t("auth.username")} autoComplete="username" value={username} maxLength={32}
-          onChange={(e) => setUsername(e.target.value)} error={errors.username} autoFocus />
-        <Field label={t("auth.password")} type="password" autoComplete="current-password" value={password} maxLength={128}
-          onChange={(e) => setPassword(e.target.value)} error={errors.password} />
-        <div className="form-row-end"><Link to="/forgot-password" className="link">{t("auth.forgot")}</Link></div>
-        <button className="btn primary block" disabled={busy}>{busy ? <Spinner size={18} /> : t("auth.login")}</button>
+      <form onSubmit={handleSubmit(submit)} noValidate className="grid gap-4">
+        <Field
+          label={t("auth.username")}
+          autoComplete="username"
+          {...register("username")}
+          maxLength={32}
+          error={errors.username?.message}
+          autoFocus
+        />
+        <Field
+          label={t("auth.password")}
+          type="password"
+          autoComplete="current-password"
+          {...register("password")}
+          maxLength={128}
+          error={errors.password?.message}
+        />
+        <div className="flex justify-end mt-[-6px] text-[0.88rem]">
+          <Link
+            to="/forgot-password"
+            className="link hover:[text-decoration:underline] hover:[text-underline-offset:3px] text-highlight font-medium"
+          >
+            {t("auth.forgot")}
+          </Link>
+        </div>
+        <button
+          className={buttonStyles({ variant: "primary", fullWidth: true })}
+          disabled={busy}
+        >
+          {busy ? <Spinner size={18} /> : t("auth.login")}
+        </button>
       </form>
       <OAuthButtons />
-      <p className="auth-switch">{t("auth.no_account")} <Link to="/register" className="link">{t("auth.create_account")}</Link></p>
+      <p className="mt-5.5 text-center text-muted text-[0.92rem]">
+        {t("auth.no_account")}{" "}
+        <Link
+          to="/register"
+          className="link hover:[text-decoration:underline] hover:[text-underline-offset:3px] text-highlight font-medium"
+        >
+          {t("auth.create_account")}
+        </Link>
+      </p>
     </AuthShell>
   );
 }
@@ -161,94 +250,163 @@ export function Register() {
   const { t, lang } = useI18n();
   const { setUser } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", username: "", first_name: "", last_name: "", password: "", confirm: "" });
-  const [language, setLanguage] = useState<Lang>(lang);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const {
+    register,
+    handleSubmit,
+    setError: setFieldError,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting: busy },
+  } = useForm<RegistrationValues>({
+    resolver: zodResolver(registrationSchema(t)),
+    defaultValues: {
+      email: "",
+      username: "",
+      first_name: "",
+      last_name: "",
+      password: "",
+      confirm: "",
+      language: lang,
+    },
+  });
+  const language = watch("language");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const errs: Record<string, string> = {};
-    if (!rules.email(form.email)) errs.email = form.email ? t("err.email") : t("err.required");
-    if (!rules.username(form.username)) errs.username = form.username ? t("err.username") : t("err.required");
-    if (!rules.name(form.first_name)) errs.first_name = form.first_name ? t("err.name") : t("err.required");
-    if (!rules.name(form.last_name)) errs.last_name = form.last_name ? t("err.name") : t("err.required");
-    if (!rules.password(form.password)) errs.password = form.password ? t("err.password") : t("err.required");
-    if (form.confirm !== form.password) errs.confirm = t("err.mismatch");
-    setErrors(errs);
-    if (Object.keys(errs).length) return;
-    setBusy(true);
+  const submit = async ({
+    confirm: _confirm,
+    ...payload
+  }: RegistrationValues) => {
     setError(null);
     try {
-      const { confirm: _c, ...payload } = form;
-      const r = await api<FormResult>("/auth/register", { method: "POST", json: { ...payload, language } });
+      const r = await api<FormResult>("/auth/register", {
+        method: "POST",
+        json: payload,
+      });
       if (r.ok && r.user) {
         setUser(r.user);
         navigate("/", { replace: true });
       } else {
-        setErrors(localizeFieldErrors(r.fields, t));
+        applyServerErrors(setFieldError, r.fields, t);
         setError(r.error ?? t("err.generic"));
       }
     } catch {
       setError(t("err.generic"));
-    } finally {
-      setBusy(false);
     }
   };
 
   return (
-    <AuthShell title={t("auth.register_title")} subtitle={t("auth.register_sub")}>
+    <AuthShell
+      title={t("auth.register_title")}
+      subtitle={t("auth.register_sub")}
+    >
       {error && <Alert>{error}</Alert>}
-      <form onSubmit={submit} noValidate className="form">
-        <div className="form-grid">
-          <Field label={t("auth.first_name")} autoComplete="given-name" value={form.first_name} maxLength={64}
-            onChange={set("first_name")} error={errors.first_name} />
-          <Field label={t("auth.last_name")} autoComplete="family-name" value={form.last_name} maxLength={64}
-            onChange={set("last_name")} error={errors.last_name} />
+      <form onSubmit={handleSubmit(submit)} noValidate className="grid gap-4">
+        <div className="form-grid mobile:grid-cols-[1fr] grid grid-cols-[1fr_1fr] gap-3.5">
+          <Field
+            label={t("auth.first_name")}
+            autoComplete="given-name"
+            {...register("first_name")}
+            maxLength={64}
+            error={errors.first_name?.message}
+          />
+          <Field
+            label={t("auth.last_name")}
+            autoComplete="family-name"
+            {...register("last_name")}
+            maxLength={64}
+            error={errors.last_name?.message}
+          />
         </div>
-        <Field label={t("auth.email")} type="email" autoComplete="email" value={form.email} maxLength={254}
-          onChange={set("email")} error={errors.email} />
-        <Field label={t("auth.username")} autoComplete="username" value={form.username} maxLength={32}
-          onChange={set("username")} error={errors.username} />
-        <div className="form-grid">
-          <Field label={t("auth.password")} type="password" autoComplete="new-password" value={form.password} maxLength={128}
-            onChange={set("password")} error={errors.password} hint={t("auth.password_hint")} />
-          <Field label={t("auth.confirm_password")} type="password" autoComplete="new-password" value={form.confirm}
-            maxLength={128} onChange={set("confirm")} error={errors.confirm} />
+        <Field
+          label={t("auth.email")}
+          type="email"
+          autoComplete="email"
+          {...register("email")}
+          maxLength={254}
+          error={errors.email?.message}
+        />
+        <Field
+          label={t("auth.username")}
+          autoComplete="username"
+          {...register("username")}
+          maxLength={32}
+          error={errors.username?.message}
+        />
+        <div className="form-grid mobile:grid-cols-[1fr] grid grid-cols-[1fr_1fr] gap-3.5">
+          <Field
+            label={t("auth.password")}
+            type="password"
+            autoComplete="new-password"
+            {...register("password")}
+            maxLength={128}
+            error={errors.password?.message}
+            hint={t("auth.password_hint")}
+          />
+          <Field
+            label={t("auth.confirm_password")}
+            type="password"
+            autoComplete="new-password"
+            {...register("confirm")}
+            maxLength={128}
+            error={errors.confirm?.message}
+          />
         </div>
-        <SelectField label={t("auth.language")} value={language} onChange={(v) => isLang(v) && setLanguage(v)}>
-          {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+        <SelectField
+          label={t("auth.language")}
+          value={language}
+          onChange={(v) =>
+            isLang(v) && setValue("language", v, { shouldDirty: true })
+          }
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.label}
+            </option>
+          ))}
         </SelectField>
-        <button className="btn primary block" disabled={busy}>{busy ? <Spinner size={18} /> : t("auth.register")}</button>
+        <button
+          className={buttonStyles({ variant: "primary", fullWidth: true })}
+          disabled={busy}
+        >
+          {busy ? <Spinner size={18} /> : t("auth.register")}
+        </button>
       </form>
       <OAuthButtons />
-      <p className="auth-switch">{t("auth.have_account")} <Link to="/login" className="link">{t("auth.sign_in")}</Link></p>
+      <p className="mt-5.5 text-center text-muted text-[0.92rem]">
+        {t("auth.have_account")}{" "}
+        <Link
+          to="/login"
+          className="link hover:[text-decoration:underline] hover:[text-underline-offset:3px] text-highlight font-medium"
+        >
+          {t("auth.sign_in")}
+        </Link>
+      </p>
     </AuthShell>
   );
 }
 
 export function ForgotPassword() {
   const { t } = useI18n();
-  const [email, setEmail] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting: busy },
+  } = useForm<ForgotValues>({
+    resolver: zodResolver(forgotSchema(t)),
+    defaultValues: { email: "" },
+  });
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!rules.email(email)) return setError(email ? t("err.email") : t("err.required"));
-    setBusy(true);
+  const submit = async (values: ForgotValues) => {
     setError(null);
     try {
-      const r = await api<FormResult>("/auth/forgot-password", { method: "POST", json: { email: email.trim() } });
+      const r = await api<FormResult>("/auth/forgot-password", {
+        method: "POST",
+        json: values,
+      });
       if (r.ok) setSent(true);
       else setError(t("err.email"));
     } catch {
       setError(t("err.generic"));
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -257,13 +415,32 @@ export function ForgotPassword() {
       {sent ? (
         <Alert kind="success">{t("auth.forgot_sent")}</Alert>
       ) : (
-        <form onSubmit={submit} noValidate className="form">
-          <Field label={t("auth.email")} type="email" autoComplete="email" value={email} maxLength={254}
-            onChange={(e) => setEmail(e.target.value)} error={error ?? undefined} autoFocus />
-          <button className="btn primary block" disabled={busy}>{busy ? <Spinner size={18} /> : t("auth.send_link")}</button>
+        <form onSubmit={handleSubmit(submit)} noValidate className="grid gap-4">
+          <Field
+            label={t("auth.email")}
+            type="email"
+            autoComplete="email"
+            {...register("email")}
+            maxLength={254}
+            error={errors.email?.message ?? error ?? undefined}
+            autoFocus
+          />
+          <button
+            className={buttonStyles({ variant: "primary", fullWidth: true })}
+            disabled={busy}
+          >
+            {busy ? <Spinner size={18} /> : t("auth.send_link")}
+          </button>
         </form>
       )}
-      <p className="auth-switch"><Link to="/login" className="link">{t("auth.back_login")}</Link></p>
+      <p className="mt-5.5 text-center text-muted text-[0.92rem]">
+        <Link
+          to="/login"
+          className="link hover:[text-decoration:underline] hover:[text-underline-offset:3px] text-highlight font-medium"
+        >
+          {t("auth.back_login")}
+        </Link>
+      </p>
     </AuthShell>
   );
 }
@@ -274,46 +451,73 @@ export function ResetPassword() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(token ? null : t("auth.reset_invalid"));
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const errs: Record<string, string> = {};
-    if (!rules.password(password)) errs.password = password ? t("err.password") : t("err.required");
-    if (confirm !== password) errs.confirm = t("err.mismatch");
-    setErrors(errs);
-    if (Object.keys(errs).length || !token) return;
-    setBusy(true);
+  const {
+    register,
+    handleSubmit,
+    setError: setFieldError,
+    formState: { errors, isSubmitting: busy },
+  } = useForm<PasswordValues>({
+    resolver: zodResolver(passwordSchema(t)),
+    defaultValues: { password: "", confirm: "" },
+  });
+  const [error, setError] = useState<string | null>(
+    token ? null : t("auth.reset_invalid"),
+  );
+  const submit = async ({ password }: PasswordValues) => {
+    if (!token) return;
     setError(null);
     try {
-      const r = await api<FormResult>("/auth/reset-password", { method: "POST", json: { token, password } });
+      const r = await api<FormResult>("/auth/reset-password", {
+        method: "POST",
+        json: { token, password },
+      });
       if (r.ok && r.user) {
         setUser(r.user);
         navigate("/", { replace: true });
-      } else if (r.fields?.password) setErrors({ password: localizeFieldErrors(r.fields, t).password });
+      } else if (r.fields?.password)
+        applyServerErrors(setFieldError, r.fields, t);
       else setError(t("auth.reset_invalid"));
     } catch {
       setError(t("err.generic"));
-    } finally {
-      setBusy(false);
     }
   };
 
   return (
     <AuthShell title={t("auth.reset_title")} subtitle={t("auth.reset_sub")}>
       {error && <Alert>{error}</Alert>}
-      <form onSubmit={submit} noValidate className="form">
-        <Field label={t("auth.new_password")} type="password" autoComplete="new-password" value={password} maxLength={128}
-          onChange={(e) => setPassword(e.target.value)} error={errors.password} hint={t("auth.password_hint")} />
-        <Field label={t("auth.confirm_password")} type="password" autoComplete="new-password" value={confirm} maxLength={128}
-          onChange={(e) => setConfirm(e.target.value)} error={errors.confirm} />
-        <button className="btn primary block" disabled={busy || !token}>{busy ? <Spinner size={18} /> : t("auth.reset")}</button>
+      <form onSubmit={handleSubmit(submit)} noValidate className="grid gap-4">
+        <Field
+          label={t("auth.new_password")}
+          type="password"
+          autoComplete="new-password"
+          {...register("password")}
+          maxLength={128}
+          error={errors.password?.message}
+          hint={t("auth.password_hint")}
+        />
+        <Field
+          label={t("auth.confirm_password")}
+          type="password"
+          autoComplete="new-password"
+          {...register("confirm")}
+          maxLength={128}
+          error={errors.confirm?.message}
+        />
+        <button
+          className={buttonStyles({ variant: "primary", fullWidth: true })}
+          disabled={busy || !token}
+        >
+          {busy ? <Spinner size={18} /> : t("auth.reset")}
+        </button>
       </form>
-      <p className="auth-switch"><Link to="/login" className="link">{t("auth.back_login")}</Link></p>
+      <p className="mt-5.5 text-center text-muted text-[0.92rem]">
+        <Link
+          to="/login"
+          className="link hover:[text-decoration:underline] hover:[text-underline-offset:3px] text-highlight font-medium"
+        >
+          {t("auth.back_login")}
+        </Link>
+      </p>
     </AuthShell>
   );
 }

@@ -10,7 +10,11 @@ const BEHIND_KEEP = 20; // seconds kept behind the playhead when the buffer is f
 const CHUNK = 256 * 1024; // coalesce network chunks into appends of this size
 
 export function mseSupported(mime: string | null | undefined): mime is string {
-  return !!mime && typeof window.MediaSource !== "undefined" && MediaSource.isTypeSupported(mime);
+  return (
+    !!mime &&
+    typeof window.MediaSource !== "undefined" &&
+    MediaSource.isTypeSupported(mime)
+  );
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -18,17 +22,25 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function bufferedAhead(video: HTMLVideoElement): number {
   const b = video.buffered;
   for (let i = 0; i < b.length; i++) {
-    if (b.start(i) <= video.currentTime + 0.5 && video.currentTime <= b.end(i)) return b.end(i) - video.currentTime;
+    if (b.start(i) <= video.currentTime + 0.5 && video.currentTime <= b.end(i))
+      return b.end(i) - video.currentTime;
   }
   return 0;
 }
 
 function waitIdle(sb: SourceBuffer): Promise<void> {
   if (!sb.updating) return Promise.resolve();
-  return new Promise((resolve) => sb.addEventListener("updateend", () => resolve(), { once: true }));
+  return new Promise((resolve) =>
+    sb.addEventListener("updateend", () => resolve(), { once: true }),
+  );
 }
 
-async function append(sb: SourceBuffer, data: Uint8Array, video: HTMLVideoElement, signal: AbortSignal) {
+async function append(
+  sb: SourceBuffer,
+  data: Uint8Array,
+  video: HTMLVideoElement,
+  signal: AbortSignal,
+) {
   for (let attempt = 0; attempt < 3; attempt++) {
     await waitIdle(sb);
     if (signal.aborted) return;
@@ -37,7 +49,8 @@ async function append(sb: SourceBuffer, data: Uint8Array, video: HTMLVideoElemen
       await waitIdle(sb);
       return;
     } catch (e) {
-      if (!(e instanceof DOMException) || e.name !== "QuotaExceededError") throw e;
+      if (!(e instanceof DOMException) || e.name !== "QuotaExceededError")
+        throw e;
       // Buffer full: drop what is well behind the playhead, then retry.
       const end = video.currentTime - BEHIND_KEEP;
       if (end > 0) {
@@ -51,7 +64,12 @@ async function append(sb: SourceBuffer, data: Uint8Array, video: HTMLVideoElemen
 }
 
 /** Attach `url` to `video` via MediaSource. Returns a cleanup function that stops streaming. */
-export function attachMediaSource(video: HTMLVideoElement, url: string, mime: string, onError: () => void): () => void {
+export function attachMediaSource(
+  video: HTMLVideoElement,
+  url: string,
+  mime: string,
+  onError: () => void,
+): () => void {
   const ms = new MediaSource();
   const objectUrl = URL.createObjectURL(ms);
   const ctrl = new AbortController();
@@ -68,7 +86,10 @@ export function attachMediaSource(video: HTMLVideoElement, url: string, mime: st
         return;
       }
       try {
-        const res = await fetch(url, { credentials: "same-origin", signal: ctrl.signal });
+        const res = await fetch(url, {
+          credentials: "same-origin",
+          signal: ctrl.signal,
+        });
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         const reader = res.body.getReader();
         let pending: Uint8Array[] = [];
@@ -93,7 +114,8 @@ export function attachMediaSource(video: HTMLVideoElement, url: string, mime: st
           size += value.length;
           if (first || size >= CHUNK) {
             first = false; // send the init segment immediately so playback can start
-            while (!ctrl.signal.aborted && bufferedAhead(video) > AHEAD_LIMIT) await sleep(1000);
+            while (!ctrl.signal.aborted && bufferedAhead(video) > AHEAD_LIMIT)
+              await sleep(1000);
             if (ctrl.signal.aborted) return;
             await flush();
           }

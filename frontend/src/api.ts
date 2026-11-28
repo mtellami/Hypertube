@@ -110,21 +110,32 @@ export interface FormResult {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
 
 let onUnauthorized: (() => void) | null = null;
-export function setUnauthorizedHandler(fn: () => void) {
+export function setUnauthorizedHandler(fn: (() => void) | null) {
   onUnauthorized = fn;
 }
 
 export async function api<T>(
   path: string,
-  options: { method?: string; json?: unknown; form?: FormData; signal?: AbortSignal } = {},
+  options: {
+    method?: string;
+    json?: unknown;
+    form?: FormData;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = { "X-Requested-With": "hypertube", Accept: "application/json" };
+  const headers: Record<string, string> = {
+    "X-Requested-With": "hypertube",
+    Accept: "application/json",
+  };
   let body: BodyInit | undefined;
   if (options.json !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -146,13 +157,20 @@ export async function api<T>(
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new ApiError(res.status, (data && (data.detail as string)) || res.statusText);
+    throw new ApiError(
+      res.status,
+      (data && (data.detail as string)) || res.statusText,
+    );
   }
   return data as T;
 }
 
 export function formatDate(iso: string, lang: string): string {
-  return new Date(iso).toLocaleDateString(lang, { year: "numeric", month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString(lang, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function formatDuration(totalSeconds: number): string {

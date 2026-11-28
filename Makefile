@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev prod down dev-down logs dev-logs
+.PHONY: help dev prod down dev-down clean logs dev-logs
 
 help:
 	@printf '%s\n' \
@@ -8,6 +8,7 @@ help:
 	  'make prod      Build and start production in the background' \
 	  'make down      Stop production (keep data)' \
 	  'make dev-down  Stop the local stack (keep data)' \
+	  'make clean     Remove both stacks, volumes and networks (delete saved data)' \
 	  'make logs      Follow production logs' \
 	  'make dev-logs  Follow local logs'
 
@@ -22,6 +23,10 @@ down:
 
 dev-down:
 	docker compose -f docker-compose-dev.yml down
+
+clean:
+	docker compose -f docker-compose-dev.yml down --volumes --remove-orphans
+	docker compose -f docker-compose.yml down --volumes --remove-orphans
 
 logs:
 	docker compose logs -f

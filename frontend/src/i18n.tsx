@@ -1,4 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { useEffect, useCallback, type ReactNode } from "react";
+import i18next from "i18next";
+import {
+  initReactI18next,
+  I18nextProvider,
+  useTranslation,
+} from "react-i18next";
 import type { Lang } from "./api";
 
 const en = {
@@ -10,7 +16,8 @@ const en = {
   "nav.clear_search": "Clear search",
   "nav.menu": "Account menu",
   "footer.tagline": "Open cinema, streamed instantly.",
-  "footer.sources": "Films from the Internet Archive and the Blender Foundation (PeerTube). Metadata by TMDb.",
+  "footer.sources":
+    "Films from the Internet Archive and the Blender Foundation (PeerTube). Metadata by TMDb.",
   "footer.legal": "Only royalty-free and openly licensed content is available.",
   "footer.language": "Language",
 
@@ -39,7 +46,8 @@ const en = {
   "auth.forgot_title": "Reset your password",
   "auth.forgot_sub": "Enter your email and we will send you a reset link.",
   "auth.send_link": "Send reset link",
-  "auth.forgot_sent": "If an account exists for this address, a reset link is on its way. Check your inbox.",
+  "auth.forgot_sent":
+    "If an account exists for this address, a reset link is on its way. Check your inbox.",
   "auth.back_login": "Back to sign in",
   "auth.reset_title": "Choose a new password",
   "auth.reset_sub": "Your new password must be different and hard to guess.",
@@ -48,7 +56,8 @@ const en = {
   "auth.reset_invalid": "This reset link is invalid or has expired.",
   "auth.password_hint": "At least 8 characters, with letters and digits.",
   "auth.hero_title": "Cinema without limits.",
-  "auth.hero_sub": "Classics, cult favourites and open movies — streamed the moment you press play.",
+  "auth.hero_sub":
+    "Classics, cult favourites and open movies — streamed the moment you press play.",
   "err.required": "This field is required.",
   "err.email": "Enter a valid email address.",
   "err.username": "3-32 characters: letters, digits, '.', '_' or '-'.",
@@ -56,13 +65,15 @@ const en = {
   "err.password": "At least 8 characters with letters and digits.",
   "err.mismatch": "Passwords do not match.",
   "err.generic": "Something went wrong. Please try again.",
-  "err.oauth_unavailable": "This sign-in provider is not configured on this server.",
+  "err.oauth_unavailable":
+    "This sign-in provider is not configured on this server.",
   "err.oauth_state": "The sign-in session expired. Please try again.",
   "err.oauth_failed": "The provider refused the sign-in. Please try again.",
   "err.oauth_no_email": "Your provider account has no verified email address.",
 
   "lib.popular": "Popular right now",
-  "lib.popular_sub": "The most downloaded and most viewed films across our sources.",
+  "lib.popular_sub":
+    "The most downloaded and most viewed films across our sources.",
   "lib.results": "Results for “{q}”",
   "lib.count": "{n} films",
   "lib.genre": "Genre",
@@ -84,7 +95,8 @@ const en = {
   "lib.empty_sub": "Try another title or loosen the filters.",
   "lib.end": "You have reached the end.",
   "lib.watched": "Watched",
-  "lib.unavailable": "Our video sources are not responding right now. Please try again in a moment.",
+  "lib.unavailable":
+    "Our video sources are not responding right now. Please try again in a moment.",
   "lib.featured": "Featured",
   "lib.watch_now": "Watch now",
   "lib.details": "Details",
@@ -157,10 +169,12 @@ const en = {
   "settings.saved": "Changes saved.",
   "settings.email_private": "Your email is never shown to other users.",
   "settings.password": "Password",
-  "settings.password_sub": "Set a new password for signing in with your username.",
+  "settings.password_sub":
+    "Set a new password for signing in with your username.",
   "settings.update_password": "Update password",
   "settings.api": "API access",
-  "settings.api_sub": "OAuth2 client credentials for the Hypertube REST API. The secret is shown only once.",
+  "settings.api_sub":
+    "OAuth2 client credentials for the Hypertube REST API. The secret is shown only once.",
   "settings.generate": "Generate credentials",
   "settings.regenerate": "Regenerate credentials",
   "settings.client_id": "Client ID",
@@ -188,8 +202,10 @@ const fr: Dict = {
   "nav.clear_search": "Effacer la recherche",
   "nav.menu": "Menu du compte",
   "footer.tagline": "Le cinéma libre, en streaming instantané.",
-  "footer.sources": "Films de l'Internet Archive et de la Blender Foundation (PeerTube). Métadonnées par TMDb.",
-  "footer.legal": "Seuls des contenus libres de droits ou sous licence ouverte sont proposés.",
+  "footer.sources":
+    "Films de l'Internet Archive et de la Blender Foundation (PeerTube). Métadonnées par TMDb.",
+  "footer.legal":
+    "Seuls des contenus libres de droits ou sous licence ouverte sont proposés.",
   "footer.language": "Langue",
 
   "auth.welcome": "Bon retour",
@@ -217,7 +233,8 @@ const fr: Dict = {
   "auth.forgot_title": "Réinitialiser le mot de passe",
   "auth.forgot_sub": "Saisissez votre email, nous vous enverrons un lien.",
   "auth.send_link": "Envoyer le lien",
-  "auth.forgot_sent": "Si un compte existe pour cette adresse, un lien de réinitialisation vous a été envoyé.",
+  "auth.forgot_sent":
+    "Si un compte existe pour cette adresse, un lien de réinitialisation vous a été envoyé.",
   "auth.back_login": "Retour à la connexion",
   "auth.reset_title": "Nouveau mot de passe",
   "auth.reset_sub": "Choisissez un mot de passe difficile à deviner.",
@@ -226,7 +243,8 @@ const fr: Dict = {
   "auth.reset_invalid": "Ce lien est invalide ou a expiré.",
   "auth.password_hint": "Au moins 8 caractères, avec lettres et chiffres.",
   "auth.hero_title": "Le cinéma sans limites.",
-  "auth.hero_sub": "Classiques, films cultes et films libres — en streaming dès que vous appuyez sur lecture.",
+  "auth.hero_sub":
+    "Classiques, films cultes et films libres — en streaming dès que vous appuyez sur lecture.",
   "err.required": "Ce champ est obligatoire.",
   "err.email": "Saisissez une adresse email valide.",
   "err.username": "3 à 32 caractères : lettres, chiffres, '.', '_' ou '-'.",
@@ -234,13 +252,15 @@ const fr: Dict = {
   "err.password": "Au moins 8 caractères avec lettres et chiffres.",
   "err.mismatch": "Les mots de passe ne correspondent pas.",
   "err.generic": "Une erreur est survenue. Réessayez.",
-  "err.oauth_unavailable": "Ce fournisseur de connexion n'est pas configuré sur ce serveur.",
+  "err.oauth_unavailable":
+    "Ce fournisseur de connexion n'est pas configuré sur ce serveur.",
   "err.oauth_state": "La session de connexion a expiré. Réessayez.",
   "err.oauth_failed": "Le fournisseur a refusé la connexion. Réessayez.",
   "err.oauth_no_email": "Votre compte n'a pas d'adresse email vérifiée.",
 
   "lib.popular": "Populaires en ce moment",
-  "lib.popular_sub": "Les films les plus téléchargés et les plus vus de nos sources.",
+  "lib.popular_sub":
+    "Les films les plus téléchargés et les plus vus de nos sources.",
   "lib.results": "Résultats pour « {q} »",
   "lib.count": "{n} films",
   "lib.genre": "Genre",
@@ -262,7 +282,8 @@ const fr: Dict = {
   "lib.empty_sub": "Essayez un autre titre ou assouplissez les filtres.",
   "lib.end": "Vous avez tout vu.",
   "lib.watched": "Vu",
-  "lib.unavailable": "Nos sources vidéo ne répondent pas. Réessayez dans un instant.",
+  "lib.unavailable":
+    "Nos sources vidéo ne répondent pas. Réessayez dans un instant.",
   "lib.featured": "À la une",
   "lib.watch_now": "Regarder",
   "lib.details": "Détails",
@@ -333,12 +354,14 @@ const fr: Dict = {
   "settings.avatar_size": "La photo doit faire moins de 5 Mo.",
   "settings.save": "Enregistrer",
   "settings.saved": "Modifications enregistrées.",
-  "settings.email_private": "Votre email n'est jamais visible par les autres utilisateurs.",
+  "settings.email_private":
+    "Votre email n'est jamais visible par les autres utilisateurs.",
   "settings.password": "Mot de passe",
   "settings.password_sub": "Définissez un nouveau mot de passe de connexion.",
   "settings.update_password": "Mettre à jour",
   "settings.api": "Accès API",
-  "settings.api_sub": "Identifiants client OAuth2 pour l'API REST. Le secret n'est affiché qu'une fois.",
+  "settings.api_sub":
+    "Identifiants client OAuth2 pour l'API REST. Le secret n'est affiché qu'une fois.",
   "settings.generate": "Générer des identifiants",
   "settings.regenerate": "Régénérer les identifiants",
   "settings.client_id": "Client ID",
@@ -363,8 +386,10 @@ const es: Dict = {
   "nav.clear_search": "Borrar búsqueda",
   "nav.menu": "Menú de la cuenta",
   "footer.tagline": "Cine abierto, al instante.",
-  "footer.sources": "Películas del Internet Archive y la Blender Foundation (PeerTube). Metadatos de TMDb.",
-  "footer.legal": "Solo se ofrece contenido libre de derechos o con licencia abierta.",
+  "footer.sources":
+    "Películas del Internet Archive y la Blender Foundation (PeerTube). Metadatos de TMDb.",
+  "footer.legal":
+    "Solo se ofrece contenido libre de derechos o con licencia abierta.",
   "footer.language": "Idioma",
 
   "auth.welcome": "Bienvenido de nuevo",
@@ -392,7 +417,8 @@ const es: Dict = {
   "auth.forgot_title": "Restablecer contraseña",
   "auth.forgot_sub": "Introduce tu correo y te enviaremos un enlace.",
   "auth.send_link": "Enviar enlace",
-  "auth.forgot_sent": "Si existe una cuenta con esta dirección, te hemos enviado un enlace.",
+  "auth.forgot_sent":
+    "Si existe una cuenta con esta dirección, te hemos enviado un enlace.",
   "auth.back_login": "Volver a iniciar sesión",
   "auth.reset_title": "Elige una nueva contraseña",
   "auth.reset_sub": "Debe ser difícil de adivinar.",
@@ -401,7 +427,8 @@ const es: Dict = {
   "auth.reset_invalid": "Este enlace no es válido o ha caducado.",
   "auth.password_hint": "Al menos 8 caracteres, con letras y números.",
   "auth.hero_title": "Cine sin límites.",
-  "auth.hero_sub": "Clásicos, películas de culto y cine libre, en cuanto pulsas reproducir.",
+  "auth.hero_sub":
+    "Clásicos, películas de culto y cine libre, en cuanto pulsas reproducir.",
   "err.required": "Este campo es obligatorio.",
   "err.email": "Introduce un correo válido.",
   "err.username": "3-32 caracteres: letras, números, '.', '_' o '-'.",
@@ -415,7 +442,8 @@ const es: Dict = {
   "err.oauth_no_email": "Tu cuenta no tiene un correo verificado.",
 
   "lib.popular": "Populares ahora",
-  "lib.popular_sub": "Las películas más descargadas y vistas de nuestras fuentes.",
+  "lib.popular_sub":
+    "Las películas más descargadas y vistas de nuestras fuentes.",
   "lib.results": "Resultados para «{q}»",
   "lib.count": "{n} películas",
   "lib.genre": "Género",
@@ -437,7 +465,8 @@ const es: Dict = {
   "lib.empty_sub": "Prueba otro título o relaja los filtros.",
   "lib.end": "Has llegado al final.",
   "lib.watched": "Vista",
-  "lib.unavailable": "Nuestras fuentes de vídeo no responden. Inténtalo en un momento.",
+  "lib.unavailable":
+    "Nuestras fuentes de vídeo no responden. Inténtalo en un momento.",
   "lib.featured": "Destacada",
   "lib.watch_now": "Ver ahora",
   "lib.details": "Detalles",
@@ -513,7 +542,8 @@ const es: Dict = {
   "settings.password_sub": "Define una nueva contraseña para iniciar sesión.",
   "settings.update_password": "Actualizar contraseña",
   "settings.api": "Acceso a la API",
-  "settings.api_sub": "Credenciales OAuth2 para la API REST. El secreto solo se muestra una vez.",
+  "settings.api_sub":
+    "Credenciales OAuth2 para la API REST. El secreto solo se muestra una vez.",
   "settings.generate": "Generar credenciales",
   "settings.regenerate": "Regenerar credenciales",
   "settings.client_id": "Client ID",
@@ -530,36 +560,84 @@ const es: Dict = {
 };
 
 const DICTS: Record<Lang, Dict> = { en, fr, es };
+const SINGULAR: Record<Lang, Record<string, string>> = {
+  en: {
+    "lib.count_one": "{n} film",
+    "movie.chars_left_one": "{n} character left",
+  },
+  fr: {
+    "lib.count_one": "{n} film",
+    "movie.chars_left_one": "{n} caractère restant",
+  },
+  es: {
+    "lib.count_one": "{n} película",
+    "movie.chars_left_one": "Queda {n} carácter",
+  },
+};
 export const LANGUAGES: { code: Lang; label: string }[] = [
   { code: "en", label: "English" },
   { code: "fr", label: "Français" },
   { code: "es", label: "Español" },
 ];
 
-export type TFunction = (key: Key, params?: Record<string, string | number>) => string;
+export type TFunction = (
+  key: Key,
+  params?: Record<string, string | number>,
+) => string;
 
-interface I18nValue {
+export const i18n = i18next.createInstance();
+void i18n.use(initReactI18next).init({
+  resources: Object.fromEntries(
+    Object.entries(DICTS).map(([lang, translation]) => [
+      lang,
+      {
+        translation: {
+          ...translation,
+          ...SINGULAR[lang as Lang],
+          "lib.count_other": translation["lib.count"],
+          "movie.chars_left_other": translation["movie.chars_left"],
+        },
+      },
+    ]),
+  ),
+  lng: storedLang(),
+  fallbackLng: "en",
+  supportedLngs: ["en", "fr", "es"],
+  keySeparator: false,
+  initAsync: false,
+  interpolation: { prefix: "{", suffix: "}", escapeValue: false },
+  react: { useSuspense: false },
+});
+
+export function I18nProvider({
+  lang,
+  children,
+}: {
   lang: Lang;
-  t: TFunction;
-}
-
-const I18nContext = createContext<I18nValue>({ lang: "en", t: (k) => en[k] });
-
-export function I18nProvider({ lang, children }: { lang: Lang; children: ReactNode }) {
-  const t = useCallback<TFunction>(
-    (key, params) => {
-      let text = (DICTS[lang] ?? en)[key] ?? en[key] ?? key;
-      if (params) for (const [k, v] of Object.entries(params)) text = text.replace(`{${k}}`, String(v));
-      return text;
-    },
-    [lang],
-  );
-  const value = useMemo(() => ({ lang, t }), [lang, t]);
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    void i18n.changeLanguage(lang);
+  }, [lang]);
+  return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;
 }
 
 export function useI18n() {
-  return useContext(I18nContext);
+  const { t: translate, i18n: instance } = useTranslation();
+  const t = useCallback<TFunction>(
+    (key, params) =>
+      String(
+        translate(key, {
+          ...params,
+          ...(typeof params?.n === "number" ? { count: params.n } : {}),
+        }),
+      ),
+    [translate],
+  );
+  const lang = isLang(instance.resolvedLanguage)
+    ? instance.resolvedLanguage
+    : "en";
+  return { lang, t };
 }
 
 export function isLang(value: unknown): value is Lang {
@@ -567,6 +645,7 @@ export function isLang(value: unknown): value is Lang {
 }
 
 export function storedLang(): Lang {
+  if (typeof window === "undefined") return "en";
   try {
     const v = localStorage.getItem("ht_lang");
     if (isLang(v)) return v;
@@ -577,6 +656,7 @@ export function storedLang(): Lang {
 }
 
 export function storeLang(lang: Lang) {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem("ht_lang", lang);
   } catch {
