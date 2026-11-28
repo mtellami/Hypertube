@@ -1,5 +1,6 @@
 """Library catalog: queries the external sources, stores movies, enriches them with TMDb
 metadata, then filters / sorts / paginates locally so that ordering is global."""
+
 import asyncio
 import logging
 import time
@@ -25,17 +26,24 @@ USER_AGENT = "Hypertube/1.0 (school project)"
 
 
 def http_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, follow_redirects=True,
-                             limits=httpx.Limits(max_connections=20))
+    return httpx.AsyncClient(
+        headers={"User-Agent": USER_AGENT},
+        follow_redirects=True,
+        limits=httpx.Limits(max_connections=20),
+    )
 
 
 async def _fetch(query: str) -> tuple[list[SourceItem], int]:
     hosts = peertube.instances(get_settings().peertube_instances)
     async with http_client() as client:
         if query:
-            tasks = [archive.search(client, query)] + [peertube.search(client, h, query) for h in hosts]
+            tasks = [archive.search(client, query)] + [
+                peertube.search(client, h, query) for h in hosts
+            ]
         else:
-            tasks = [archive.popular(client)] + [peertube.popular(client, h) for h in hosts]
+            tasks = [archive.popular(client)] + [
+                peertube.popular(client, h) for h in hosts
+            ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
     items: list[SourceItem] = []
     failures = 0
@@ -57,12 +65,28 @@ def _upsert(items: list[SourceItem]) -> list[int]:
             if key in seen:
                 continue
             seen.add(key)
-            movie = db.scalar(select(Movie).where(Movie.source == it.source, Movie.source_id == it.source_id))
+            movie = db.scalar(
+                select(Movie).where(
+                    Movie.source == it.source, Movie.source_id == it.source_id
+                )
+            )
             if movie is None:
-                movie = Movie(source=it.source, source_id=it.source_id, title=it.title, year=it.year,
-                              summary=it.summary, genres=it.genres, runtime_minutes=it.runtime_minutes,
-                              poster_url=it.poster_url, popularity=it.popularity, language=it.language,
-                              directors=it.directors, page_url=it.page_url, producers=[], cast=[])
+                movie = Movie(
+                    source=it.source,
+                    source_id=it.source_id,
+                    title=it.title,
+                    year=it.year,
+                    summary=it.summary,
+                    genres=it.genres,
+                    runtime_minutes=it.runtime_minutes,
+                    poster_url=it.poster_url,
+                    popularity=it.popularity,
+                    language=it.language,
+                    directors=it.directors,
+                    page_url=it.page_url,
+                    producers=[],
+                    cast=[],
+                )
                 db.add(movie)
                 db.flush()
             else:
@@ -74,8 +98,11 @@ def _upsert(items: list[SourceItem]) -> list[int]:
 
 def _unenriched(ids: list[int]) -> list[tuple[int, str, int | None]]:
     with SessionLocal() as db:
-        rows = db.execute(select(Movie.id, Movie.title, Movie.year)
-                          .where(Movie.id.in_(ids), Movie.enriched_at.is_(None))).all()
+        rows = db.execute(
+            select(Movie.id, Movie.title, Movie.year).where(
+                Movie.id.in_(ids), Movie.enriched_at.is_(None)
+            )
+        ).all()
         return [(r.id, r.title, r.year) for r in rows]
 
 
@@ -160,8 +187,17 @@ async def pool(query: str) -> list[int]:
 SORTS = {"name", "year", "rating", "popularity"}
 
 
-def filter_sort(movies: list[Movie], *, searching: bool, genre: str | None, min_rating: float | None,
-                year_min: int | None, year_max: int | None, sort: str | None, order: str | None) -> list[Movie]:
+def filter_sort(
+    movies: list[Movie],
+    *,
+    searching: bool,
+    genre: str | None,
+    min_rating: float | None,
+    year_min: int | None,
+    year_max: int | None,
+    sort: str | None,
+    order: str | None
+) -> list[Movie]:
     out = movies
     if genre:
         g = genre.lower()
@@ -175,7 +211,11 @@ def filter_sort(movies: list[Movie], *, searching: bool, genre: str | None, min_
 
     # Subject: search results sorted by name; front page sorted by popularity (downloads/views).
     sort = sort if sort in SORTS else ("name" if searching else "popularity")
-    desc = (order == "desc") if order in ("asc", "desc") else sort in ("rating", "popularity", "year")
+    desc = (
+        (order == "desc")
+        if order in ("asc", "desc")
+        else sort in ("rating", "popularity", "year")
+    )
     if sort == "name":
         keyf = lambda m: (tmdb.norm(m.title) or m.title.lower())  # noqa: E731
         out = sorted(out, key=keyf, reverse=desc)
@@ -187,17 +227,23 @@ def filter_sort(movies: list[Movie], *, searching: bool, genre: str | None, min_
     return out
 
 
-async def import_one(source: str, source_id: str, user_id: int) -> tuple[int, bool] | None:
+async def import_one(
+    source: str, source_id: str, user_id: int
+) -> tuple[int, bool] | None:
     """Fetch one item from a source and store it. Returns (movie_id, created) or None if not found."""
     with SessionLocal() as db:
-        existing = db.scalar(select(Movie.id).where(Movie.source == source, Movie.source_id == source_id))
+        existing = db.scalar(
+            select(Movie.id).where(Movie.source == source, Movie.source_id == source_id)
+        )
     if existing:
         return existing, False
     async with http_client() as client:
         if source == "archive":
             item = await archive.fetch_one(client, source_id)
         else:
-            item = await peertube.fetch_one(client, source_id, peertube.instances(get_settings().peertube_instances))
+            item = await peertube.fetch_one(
+                client, source_id, peertube.instances(get_settings().peertube_instances)
+            )
     if item is None:
         return None
     movie_id = (await run_in_threadpool(_upsert, [item]))[0]
@@ -208,6 +254,7 @@ async def import_one(source: str, source_id: str, user_id: int) -> tuple[int, bo
             if movie.added_by_id is None:
                 movie.added_by_id = user_id
                 db.commit()
+
     await run_in_threadpool(mark)
     await enrich([movie_id])
     return movie_id, True

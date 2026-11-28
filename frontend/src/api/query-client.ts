@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { ApiError } from "./api";
+import { ApiError } from "./client";
 
 export const sessionKey = ["session"] as const;
 export const queryClient = new QueryClient({

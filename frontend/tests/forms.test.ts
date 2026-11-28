@@ -6,8 +6,8 @@ import {
   passwordSchema,
   profileSchema,
   applyServerErrors,
-} from "../src/forms";
-import type { TFunction } from "../src/i18n";
+} from "../src/common/forms";
+import type { TFunction } from "../src/common/i18n";
 
 const t: TFunction = (key) => key;
 const profile = {

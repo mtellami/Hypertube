@@ -1,5 +1,3 @@
-// Thin fetch wrapper. Cookie-authenticated mutations carry X-Requested-With (CSRF guard).
-
 export interface User {
   id: number;
   username: string;
@@ -163,25 +161,4 @@ export async function api<T>(
     );
   }
   return data as T;
-}
-
-export function formatDate(iso: string, lang: string): string {
-  return new Date(iso).toLocaleDateString(lang, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-export function formatDuration(totalSeconds: number): string {
-  if (!isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
-  const s = Math.floor(totalSeconds % 60);
-  const m = Math.floor((totalSeconds / 60) % 60);
-  const h = Math.floor(totalSeconds / 3600);
-  const mm = h ? String(m).padStart(2, "0") : String(m);
-  return `${h ? h + ":" : ""}${mm}:${String(s).padStart(2, "0")}`;
-}
-
-export function isAbortError(e: unknown): boolean {
-  return e instanceof DOMException && e.name === "AbortError";
 }

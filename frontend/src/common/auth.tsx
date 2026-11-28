@@ -7,10 +7,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, setUnauthorizedHandler, type Lang, type User } from "./api";
+import {
+  api,
+  setUnauthorizedHandler,
+  type Lang,
+  type User,
+} from "../api/client";
 import { I18nProvider, storeLang, storedLang } from "./i18n";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { sessionKey } from "./query-client";
+import { sessionKey } from "../api/query-client";
 
 interface AuthValue {
   user: User | null;

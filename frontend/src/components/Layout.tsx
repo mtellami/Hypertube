@@ -9,8 +9,8 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import { useAuth } from "../auth";
-import { LANGUAGES, isLang, useI18n } from "../i18n";
+import { useAuth } from "../common/auth";
+import { LANGUAGES, isLang, useI18n } from "../common/i18n";
 import { LuX, LuLogOut, LuSearch, LuSettings, LuUser } from "react-icons/lu";
 import { Avatar } from "./ui";
 
@@ -142,7 +142,7 @@ function UserMenu() {
   };
   return (
     <div className="relative flex items-center gap-2.5">
-      <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+      <DropdownMenu.Root modal={false} open={open} onOpenChange={setOpen}>
         <DropdownMenu.Trigger asChild>
           <button
             className={`

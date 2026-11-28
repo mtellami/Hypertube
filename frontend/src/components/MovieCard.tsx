@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { MovieCard as Movie } from "../api";
-import { useI18n } from "../i18n";
+import type { MovieCard as Movie } from "../api/client";
+import { useI18n } from "../common/i18n";
 import { LuEye, LuFilm, LuStar } from "react-icons/lu";
 
 export default function MovieCard({

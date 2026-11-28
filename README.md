@@ -12,28 +12,14 @@ Sample film artwork is by Blender Studio and the Blender Foundation. The artwork
 
 ## Features
 
-- Search a combined video library with sorting, genre, year, and rating filters and infinite scrolling.
-- View movie details, posters, cast, and ratings, with optional TMDb enrichment.
-- Stream partial downloads, seek through videos, and convert unsupported formats with FFmpeg.
-- Select subtitles from downloaded files or the optional OpenSubtitles integration.
-- Track watched movies and automatically clean up unwatched cached downloads after a configurable retention period.
-- Register, sign in, reset passwords by email, manage profiles, and post comments.
-- Sign in through 42, GitHub, Discord, or GitLab when configured.
-- Use the interface in English, French, or Spanish.
-- Access the REST API with bearer tokens and interactive OpenAPI documentation.
+- Search and filter the library, and browse movie details, cast, and ratings.
+- Play and seek through partial downloads, with on-the-fly conversion and subtitles.
+- Manage profiles, leave comments, and track watch history. The app cleans up unwatched cached downloads.
+- Use the interface in English, French, or Spanish, or access the REST API with a bearer token.
 
-## Stack
+## How to run
 
-| Layer | Technologies |
-| --- | --- |
-| Frontend | React 18, TypeScript, Vite, React Router, CSS |
-| Backend | Python 3.12, FastAPI, SQLAlchemy 2, Alembic |
-| Database | PostgreSQL 16 |
-| Streaming | libtorrent, FFmpeg, ffprobe, Media Source Extensions |
-| Infrastructure | Docker Compose, nginx |
-| Development email | Mailpit |
-
-## Run locally
+Install Docker with Compose and `make`, then clone the repository and copy the environment file.
 
 ```sh
 git clone https://github.com/mtellami/Hypertube.git
@@ -41,72 +27,44 @@ cd Hypertube
 cp .env.example .env
 ```
 
-Set `SECRET_KEY` and `POSTGRES_PASSWORD` in `.env`. Generate a signing key with:
-
-```sh
-python3 -c "import secrets; print(secrets.token_urlsafe(48))"
-```
-
-Start the application:
-
-```sh
-make dev
-```
-
-- Application: http://localhost:8080
-- API documentation: http://localhost:8080/api/docs
-- Development email inbox: http://localhost:8025
-
-Database migrations run when the backend starts. Docker volumes persist database records, downloads, subtitles, and avatars.
-
-The frontend uses React, Vite, and Tailwind CSS v4. Use utilities and responsive/state variants for component styling; shared button and form-control styles live in `frontend/src/components/ui-styles.ts`. `frontend/src/styles/global.css` contains only theme tokens, base styles, breakpoint definitions, keyframes, and custom gradient utilities.
-
-Server state uses TanStack Query, auth/settings forms use React Hook Form with Zod, menus use Radix Dropdown Menu, and translations use react-i18next. Query caches are scoped to the signed-in user and language. Run frontend regression tests with `pnpm --dir frontend test` and the production build with `pnpm --dir frontend build`.
-
-## Configuration
-
-See [.env.example](.env.example) for setup and optional integration settings. Optional integrations include `TMDB_API_KEY`, OpenSubtitles credentials, and OAuth provider credentials. Local password-reset emails use Mailpit; configure SMTP for delivery to real inboxes.
-
-`PUBLIC_URL` sets the application address used by OAuth and password-reset links. Use `EXTRA_PUBLIC_URLS` for additional addresses and register the corresponding callback URLs with each OAuth provider. Advanced overrides can be added to `.env`: `PEERTUBE_INSTANCES` selects video sources (default `video.blender.org`), `STREAM_READY_BYTES` sets the playback buffer (default 8388608 bytes), and `UNWATCHED_RETENTION_DAYS` sets cache retention (default 30 days).
-
-## Run in production
-
-Set `PUBLIC_URL` to your public application address and configure a real SMTP server in `.env`. `HTTP_PORT` selects the exposed HTTP port (8080 in the example environment). For HTTPS, place the application behind your own TLS reverse proxy.
+Set a strong random `SECRET_KEY` and `POSTGRES_PASSWORD` in `.env`. If you deploy to a domain, set `PUBLIC_URL` to the public address and terminate HTTPS at a reverse proxy. Configure SMTP for password-reset emails. See [.env.example](.env.example) for optional integrations.
 
 ```sh
 make prod
 ```
 
-The production stack runs PostgreSQL, the backend, and nginx with persistent volumes. The local development stack additionally includes Mailpit.
+With the default `.env` settings, open the [app](http://localhost:8080) or [API docs](http://localhost:8080/api/docs). Use `make logs` to follow logs and `make down` to stop the stack while keeping its data.
 
-The default `docker-compose.yml` runs production; `docker-compose-dev.yml` runs local development. Use `make down` / `make logs` for production and `make dev-down` / `make dev-logs` for development. Stopping a stack keeps its data. Run `make` to list commands.
+## Architecture
 
-Run `make clean` to remove both development and production containers, their named and anonymous volumes, and their Compose networks, including orphaned containers belonging to those projects. This deletes saved database records, downloads, subtitles, and avatars. Docker images and unrelated Docker projects are kept.
+Docker Compose runs nginx, FastAPI, and PostgreSQL. The FastAPI container also runs libtorrent and FFmpeg.
 
-## Development checks
+```mermaid
+flowchart TB
+    Browser["Browser<br/>React + TypeScript · HTML video + MediaSource"]
+    Nginx["nginx<br/>Serves the React app"]
+    API["FastAPI<br/>REST, auth, profiles, comments"]
+    DB[("PostgreSQL 16<br/>pgdata volume")]
+    Media[("appdata volume<br/>Videos, subtitles, avatars")]
 
-Use Node.js 22 and the pnpm version pinned in `frontend/package.json`.
+    Browser <-->|"HTTP · app, API, and video"| Nginx
+    Nginx <-->|"/api · port 8000"| API
+    API <-->|SQLAlchemy| DB
+    API --> Catalog["Catalog"]
+    API -->|"Start, poll, stream"| Playback["Streaming"]
 
-```sh
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run build
+    Catalog -->|Search| Sources["Internet Archive + PeerTube"]
+    Catalog -.->|Metadata| TMDb["TMDb"]
+    Playback -->|"Torrents and captions"| Sources
+    Playback -.->|Subtitles| OpenSubtitles["OpenSubtitles"]
+    Playback <-->|"Probe and convert"| FFmpeg["FFmpeg + ffprobe"]
+    Playback -->|"Read media"| Media
+    Playback -->|"Prioritize pieces"| Torrent["libtorrent"]
+    Torrent -->|"Write pieces"| Media
+    Torrent <-->|"TCP/UDP sockets · port 6881"| Peers["BitTorrent peers<br/>Trackers + DHT"]
+
+    API -.-> OAuth["OAuth sign-in<br/>42, GitHub, Discord, GitLab"]
+    API -.->|"Password-reset email"| SMTP["SMTP"]
 ```
 
-With Python 3.12 and the backend requirements installed, run from `backend/`:
-
-```sh
-ruff check app alembic tests
-python -m unittest discover -s tests -v
-```
-
-`requirements-dev.txt` adds Ruff for linting to the runtime dependencies; production installs only `requirements.txt`. Install the check tools with `python -m pip install -r requirements-dev.txt`. CI runs these checks, validates both Compose configurations, and checks database migrations against PostgreSQL.
-
-## Project structure
-
-```text
-backend/app/        API routes, authentication, catalog, and streaming services
-backend/alembic/    Database migrations
-backend/tests/      Backend regression checks
-frontend/src/       React pages, components, API client, and translations
-```
+libtorrent downloads pieces from peers and HTTP web seeds. The player polls download status over HTTP and uses byte ranges for native playback. For conversion, FFmpeg reads completed files from disk or fetches partial files from FastAPI over loopback HTTP, then streams fragmented MP4 back to the browser through nginx.

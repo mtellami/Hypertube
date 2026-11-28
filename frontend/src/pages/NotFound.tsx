@@ -1,6 +1,6 @@
 import { buttonStyles } from "../components/ui-styles";
 import { Link } from "react-router-dom";
-import { useI18n } from "../i18n";
+import { useI18n } from "../common/i18n";
 
 export default function NotFound() {
   const { t } = useI18n();

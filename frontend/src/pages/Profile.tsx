@@ -1,12 +1,13 @@
 import { buttonStyles } from "../components/ui-styles";
-import { useProfileQueries } from "../queries";
+import { useProfileQueries } from "../api/queries";
 import { Link, useParams } from "react-router-dom";
-import { ApiError, formatDate } from "../api";
-import { useAuth } from "../auth";
+import { ApiError } from "../api/client";
+import { formatDate } from "../common/format";
+import { useAuth } from "../common/auth";
 import { LuCalendar, LuFilm, LuSettings, LuUser } from "react-icons/lu";
 import MovieCard from "../components/MovieCard";
 import { Alert, Avatar, EmptyState, FullPageSpinner } from "../components/ui";
-import { LANGUAGES, useI18n } from "../i18n";
+import { LANGUAGES, useI18n } from "../common/i18n";
 
 export default function Profile() {
   const { id } = useParams();

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
-import { requestStream } from "../src/stream-query";
+import { requestStream } from "../src/api/stream-query";
 
 test("a StrictMode-style unsubscribe/remount shares the initial stream POST", async () => {
   const original = globalThis.fetch;

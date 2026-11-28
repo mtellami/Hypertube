@@ -1,4 +1,5 @@
 """Orchestrates downloads, cached files, subtitles and the monthly cleanup."""
+
 from __future__ import annotations
 
 import asyncio
@@ -38,6 +39,7 @@ def _spawn(coro) -> None:
             await coro
         except Exception:
             log.exception("Background task failed")
+
     task = asyncio.create_task(guarded())
     _bg.add(task)
     task.add_done_callback(_bg.discard)
@@ -59,7 +61,9 @@ def init_engine() -> TorrentEngine:
 
 def _interrupted_ids() -> list[int]:
     with SessionLocal() as db:
-        return list(db.scalars(select(Movie.id).where(Movie.download_state == "downloading")))
+        return list(
+            db.scalars(select(Movie.id).where(Movie.download_state == "downloading"))
+        )
 
 
 async def _resume_interrupted() -> None:
@@ -86,11 +90,24 @@ def _update_movie(movie_id: int, **values) -> None:
 
 def _add_subtitle(movie_id: int, lang: str, source: str, rel_path: str) -> None:
     with SessionLocal() as db:
-        exists = db.scalar(select(Subtitle.id).where(Subtitle.movie_id == movie_id, Subtitle.lang == lang,
-                                                    Subtitle.source == source))
+        exists = db.scalar(
+            select(Subtitle.id).where(
+                Subtitle.movie_id == movie_id,
+                Subtitle.lang == lang,
+                Subtitle.source == source,
+            )
+        )
         if exists:
             return
-        db.add(Subtitle(movie_id=movie_id, lang=lang, label=subs.label_for(lang), source=source, path=rel_path))
+        db.add(
+            Subtitle(
+                movie_id=movie_id,
+                lang=lang,
+                label=subs.label_for(lang),
+                source=source,
+                path=rel_path,
+            )
+        )
         try:
             db.commit()
         except IntegrityError:
@@ -99,7 +116,9 @@ def _add_subtitle(movie_id: int, lang: str, source: str, rel_path: str) -> None:
 
 def _subtitle_langs(movie_id: int) -> set[str]:
     with SessionLocal() as db:
-        return set(db.scalars(select(Subtitle.lang).where(Subtitle.movie_id == movie_id)))
+        return set(
+            db.scalars(select(Subtitle.lang).where(Subtitle.movie_id == movie_id))
+        )
 
 
 # --- Local file state ------------------------------------------------------
@@ -136,13 +155,22 @@ async def _start(movie_id: int) -> None:
         data, seeds = await _fetch_torrent(movie)
         job = engine.add(movie_id, data, seeds)
         rel = f"{movie_id}/{job.rel_path}"
-        await run_in_threadpool(_update_movie, movie_id, download_state="downloading", file_path=rel,
-                                file_size=job.file_size)
+        await run_in_threadpool(
+            _update_movie,
+            movie_id,
+            download_state="downloading",
+            file_path=rel,
+            file_size=job.file_size,
+        )
         _errors.pop(movie_id, None)
         _spawn(_watch_torrent_subtitles(job, movie.language or "en"))
     except Exception as exc:  # report to the UI, allow retry
         log.warning("Could not start movie %s: %s", movie_id, exc)
-        _errors[movie_id] = str(exc) if isinstance(exc, ValueError) else "The torrent could not be started."
+        _errors[movie_id] = (
+            str(exc)
+            if isinstance(exc, ValueError)
+            else "The torrent could not be started."
+        )
     finally:
         _starting.pop(movie_id, None)
 
@@ -158,8 +186,12 @@ async def ensure_started(movie: Movie, user_language: str) -> None:
 
 async def _on_finished(job: Job) -> None:
     await _process_torrent_subtitles(job, None)
-    await run_in_threadpool(_update_movie, job.movie_id, download_state="complete",
-                            downloaded_at=datetime.now(timezone.utc))
+    await run_in_threadpool(
+        _update_movie,
+        job.movie_id,
+        download_state="complete",
+        downloaded_at=datetime.now(timezone.utc),
+    )
     log.info("Movie %s fully downloaded and cached", job.movie_id)
     # Keep the job object alive for in-flight readers (job.finished means no waiting).
     engine.remove(job.movie_id)
@@ -198,7 +230,9 @@ async def _process_torrent_subtitles(job: Job, done: set[int] | None) -> set[int
         if not vtt:
             continue
         lang = subs.lang_from_filename(path, default_lang)
-        rel = await run_in_threadpool(subs.write_vtt, job.movie_id, "torrent", lang, vtt)
+        rel = await run_in_threadpool(
+            subs.write_vtt, job.movie_id, "torrent", lang, vtt
+        )
         await run_in_threadpool(_add_subtitle, job.movie_id, lang, "torrent", rel)
     return done
 
@@ -221,7 +255,11 @@ async def fetch_external_subtitles(movie_id: int, user_language: str) -> None:
     if user_language and user_language != (movie.language or "en"):
         wanted.add(user_language)
     have = await run_in_threadpool(_subtitle_langs, movie_id)
-    todo = [lang for lang in wanted if lang not in have and (movie_id, lang) not in _sub_attempts]
+    todo = [
+        lang
+        for lang in wanted
+        if lang not in have and (movie_id, lang) not in _sub_attempts
+    ]
     if not todo:
         return
     for lang in todo:
@@ -230,15 +268,25 @@ async def fetch_external_subtitles(movie_id: int, user_language: str) -> None:
     if movie.source == "peertube":
         try:
             async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-                for code, _label, url in await peertube.captions(client, movie.source_id):
+                for code, _label, url in await peertube.captions(
+                    client, movie.source_id
+                ):
                     lang = code.split("-")[0].lower()
                     if lang not in todo:
                         continue
                     r = await client.get(url)
-                    vtt = subs.to_vtt(subs.decode(r.content)) if r.status_code == 200 else None
+                    vtt = (
+                        subs.to_vtt(subs.decode(r.content))
+                        if r.status_code == 200
+                        else None
+                    )
                     if vtt:
-                        rel = await run_in_threadpool(subs.write_vtt, movie_id, "peertube", lang, vtt)
-                        await run_in_threadpool(_add_subtitle, movie_id, lang, "peertube", rel)
+                        rel = await run_in_threadpool(
+                            subs.write_vtt, movie_id, "peertube", lang, vtt
+                        )
+                        await run_in_threadpool(
+                            _add_subtitle, movie_id, lang, "peertube", rel
+                        )
                         todo.remove(lang)
         except httpx.HTTPError as exc:
             log.warning("PeerTube captions failed: %s", exc)
@@ -247,8 +295,12 @@ async def fetch_external_subtitles(movie_id: int, user_language: str) -> None:
         for lang in todo:
             vtt = await subs.opensubtitles_fetch(movie.imdb_id, lang)
             if vtt:
-                rel = await run_in_threadpool(subs.write_vtt, movie_id, "opensubtitles", lang, vtt)
-                await run_in_threadpool(_add_subtitle, movie_id, lang, "opensubtitles", rel)
+                rel = await run_in_threadpool(
+                    subs.write_vtt, movie_id, "opensubtitles", lang, vtt
+                )
+                await run_in_threadpool(
+                    _add_subtitle, movie_id, lang, "opensubtitles", rel
+                )
 
 
 # --- Status -------------------------------------------------------------------
@@ -256,7 +308,9 @@ def source_for_ffmpeg(movie: Movie) -> str:
     path = completed_path(movie)
     if path:
         return str(path)
-    return f"{get_settings().internal_url}/api/internal/raw/{movie.id}?key={INTERNAL_KEY}"
+    return (
+        f"{get_settings().internal_url}/api/internal/raw/{movie.id}?key={INTERNAL_KEY}"
+    )
 
 
 async def status(movie: Movie) -> dict:
@@ -265,9 +319,22 @@ async def status(movie: Movie) -> dict:
     job = engine.jobs.get(movie.id)
     ext = ext_of(movie.file_path or (job.rel_path if job else ""))
     mode = "native" if ext in NATIVE_EXT else "transcode"
-    result = {"state": "idle", "progress": 0.0, "buffer": 0.0, "download_rate": 0, "peers": 0, "ready": False,
-              "mode": mode if ext else None, "container": ext or None, "duration": None, "error": None,
-              "height": None, "qualities": [], "mse_type": None, "mse_type_converted": None}
+    result = {
+        "state": "idle",
+        "progress": 0.0,
+        "buffer": 0.0,
+        "download_rate": 0,
+        "peers": 0,
+        "ready": False,
+        "mode": mode if ext else None,
+        "container": ext or None,
+        "duration": None,
+        "error": None,
+        "height": None,
+        "qualities": [],
+        "mse_type": None,
+        "mse_type_converted": None,
+    }
     if path:
         result.update(state="complete", progress=100.0, buffer=100.0, ready=True)
     elif job:
@@ -301,20 +368,37 @@ async def status(movie: Movie) -> dict:
 # --- Cleanup ------------------------------------------------------------------
 def _expired_movies(cutoff: datetime) -> list[int]:
     with SessionLocal() as db:
-        return list(db.scalars(select(Movie.id).where(
-            Movie.download_state != "none", Movie.last_watched_at < cutoff)))
+        return list(
+            db.scalars(
+                select(Movie.id).where(
+                    Movie.download_state != "none", Movie.last_watched_at < cutoff
+                )
+            )
+        )
 
 
 async def cleanup_once() -> int:
     """Erase movies that have not been watched for a month."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=get_settings().unwatched_retention_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        days=get_settings().unwatched_retention_days
+    )
     ids = await run_in_threadpool(_expired_movies, cutoff)
     for movie_id in ids:
         engine.remove(movie_id, delete_files=True)
         _probes.pop(movie_id, None)
-        await run_in_threadpool(_update_movie, movie_id, download_state="none", file_path=None, file_size=None,
-                                downloaded_at=None)
-        log.info("Movie %s erased (unwatched for %s days)", movie_id, get_settings().unwatched_retention_days)
+        await run_in_threadpool(
+            _update_movie,
+            movie_id,
+            download_state="none",
+            file_path=None,
+            file_size=None,
+            downloaded_at=None,
+        )
+        log.info(
+            "Movie %s erased (unwatched for %s days)",
+            movie_id,
+            get_settings().unwatched_retention_days,
+        )
     return len(ids)
 
 

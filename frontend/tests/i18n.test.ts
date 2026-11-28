@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { i18n } from "../src/i18n";
+import { i18n } from "../src/common/i18n";
 
 test("existing dotted keys and brace placeholders work in every supported language", () => {
   assert.equal(

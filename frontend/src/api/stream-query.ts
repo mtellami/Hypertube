@@ -3,7 +3,7 @@ import type {
   QueryFunctionContext,
   QueryKey,
 } from "@tanstack/react-query";
-import { api, type StreamStatus } from "./api";
+import { api, type StreamStatus } from "./client";
 
 export function requestStream(
   client: QueryClient,

@@ -1,4 +1,8 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import {
   api,
   type LibraryPage,
@@ -6,8 +10,9 @@ import {
   type MovieDetail,
   type User,
   type CommentItem,
-} from "./api";
-import { useAuth } from "./auth";
+} from "./client";
+import { useAuth } from "../common/auth";
+import { LIBRARY_FILTER_KEYS } from "./library-filters";
 
 export function useViewerKey() {
   const { user, language } = useAuth();
@@ -17,15 +22,7 @@ export function useViewerKey() {
 export function useLibraryQuery(params: URLSearchParams) {
   const viewer = useViewerKey();
   const filters = new URLSearchParams();
-  for (const key of [
-    "q",
-    "genre",
-    "min_rating",
-    "year_min",
-    "year_max",
-    "sort",
-    "order",
-  ]) {
+  for (const key of ["q", ...LIBRARY_FILTER_KEYS]) {
     const value = params.get(key)?.trim();
     if (value) filters.set(key, value);
   }
@@ -51,10 +48,12 @@ export function useMovieQuery(id: number, pollUntil = 0) {
   });
 }
 
-export function useCommentsQuery(id: number) {
-  const viewer = useViewerKey();
-  return useQuery({
-    queryKey: [...viewer, "comments", id],
+export function movieCommentsOptions(
+  viewer: ReturnType<typeof useViewerKey>,
+  id: number,
+) {
+  return queryOptions({
+    queryKey: [...viewer, "comments", id] as const,
     queryFn: ({ signal }) =>
       api<CommentItem[]>(`/movies/${id}/comments`, { signal }),
   });
