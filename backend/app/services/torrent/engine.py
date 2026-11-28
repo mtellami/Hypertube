@@ -9,6 +9,7 @@ stream is implemented here:
   * waiting for pieces before serving byte ranges (``read_range``);
   * reporting buffering readiness to the UI.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,11 +24,32 @@ import libtorrent as lt
 
 log = logging.getLogger("hypertube.torrent")
 
-VIDEO_EXT = {"mp4", "m4v", "webm", "mkv", "avi", "mov", "ogv", "ogg", "mpg", "mpeg", "wmv", "flv", "ts",
-             "m2ts", "3gp", "divx", "vob"}
-NATIVE_EXT = {"mp4", "m4v", "webm"}  # streamed as-is; everything else goes through ffmpeg
+VIDEO_EXT = {
+    "mp4",
+    "m4v",
+    "webm",
+    "mkv",
+    "avi",
+    "mov",
+    "ogv",
+    "ogg",
+    "mpg",
+    "mpeg",
+    "wmv",
+    "flv",
+    "ts",
+    "m2ts",
+    "3gp",
+    "divx",
+    "vob",
+}
+NATIVE_EXT = {
+    "mp4",
+    "m4v",
+    "webm",
+}  # streamed as-is; everything else goes through ffmpeg
 SUB_EXT = {"srt", "vtt"}
-MAX_VIDEO_SIZE = 8 * 1024 ** 3
+MAX_VIDEO_SIZE = 8 * 1024**3
 READ_CHUNK = 512 * 1024
 LOOKAHEAD_BYTES = 24 * 1024 * 1024
 
@@ -69,7 +91,10 @@ class Job:
         ev.set()
 
     def has_range(self, start: int, end: int) -> bool:
-        return all(self.handle.have_piece(p) for p in range(self.piece_of(start), self.piece_of(end) + 1))
+        return all(
+            self.handle.have_piece(p)
+            for p in range(self.piece_of(start), self.piece_of(end) + 1)
+        )
 
     def prioritize(self, file_pos: int) -> None:
         """Ask libtorrent for the pieces right after the playback position first."""
@@ -77,7 +102,9 @@ class Job:
         if first == self.last_deadline_piece:
             return
         self.last_deadline_piece = first
-        last = min(self.piece_of(self.file_size - 1), self.piece_of(file_pos + LOOKAHEAD_BYTES))
+        last = min(
+            self.piece_of(self.file_size - 1), self.piece_of(file_pos + LOOKAHEAD_BYTES)
+        )
         deadline = 0
         for p in range(first, last + 1):
             if not self.handle.have_piece(p):
@@ -105,7 +132,11 @@ def choose_files(info: lt.torrent_info) -> tuple[int | None, list[tuple[int, str
         path, size = fs.file_path(i), fs.file_size(i)
         ext = ext_of(path)
         low = path.lower()
-        if ext in VIDEO_EXT and 1024 * 1024 < size <= MAX_VIDEO_SIZE and "sample" not in os.path.basename(low):
+        if (
+            ext in VIDEO_EXT
+            and 1024 * 1024 < size <= MAX_VIDEO_SIZE
+            and "sample" not in os.path.basename(low)
+        ):
             videos.append((i, ext, size))
         elif ext in SUB_EXT and size < 5 * 1024 * 1024:
             subs.append((i, path))
@@ -126,20 +157,24 @@ class TorrentEngine:
     def __init__(self, downloads_dir: Path, listen_port: int):
         self.downloads_dir = downloads_dir
         downloads_dir.mkdir(parents=True, exist_ok=True)
-        self.session = lt.session({
-            "listen_interfaces": f"0.0.0.0:{listen_port},[::]:{listen_port}",
-            "alert_mask": lt.alert_category.status | lt.alert_category.error | lt.alert_category.piece_progress
-            | lt.alert_category.storage,
-            "user_agent": "Hypertube/1.0 libtorrent/2.1",
-            "enable_dht": True,
-            "enable_lsd": False,
-            "enable_upnp": False,
-            "enable_natpmp": False,
-            "connections_limit": 300,
-            "active_downloads": 8,
-            "active_seeds": 4,
-            "urlseed_max_request_bytes": 4 * 1024 * 1024,
-        })
+        self.session = lt.session(
+            {
+                "listen_interfaces": f"0.0.0.0:{listen_port},[::]:{listen_port}",
+                "alert_mask": lt.alert_category.status
+                | lt.alert_category.error
+                | lt.alert_category.piece_progress
+                | lt.alert_category.storage,
+                "user_agent": "Hypertube/1.0 libtorrent/2.1",
+                "enable_dht": True,
+                "enable_lsd": False,
+                "enable_upnp": False,
+                "enable_natpmp": False,
+                "connections_limit": 300,
+                "active_downloads": 8,
+                "active_seeds": 4,
+                "urlseed_max_request_bytes": 4 * 1024 * 1024,
+            }
+        )
         self.jobs: dict[int, Job] = {}
         self._by_hash: dict[str, Job] = {}
         self._starting: dict[int, asyncio.Task] = {}
@@ -162,7 +197,9 @@ class TorrentEngine:
         return self.downloads_dir / str(movie_id)
 
     # --- jobs -------------------------------------------------------------
-    def add(self, movie_id: int, torrent_bytes: bytes, web_seeds: list[str] | None = None) -> Job:
+    def add(
+        self, movie_id: int, torrent_bytes: bytes, web_seeds: list[str] | None = None
+    ) -> Job:
         if movie_id in self.jobs:
             return self.jobs[movie_id]
         info = lt.torrent_info(lt.bdecode(torrent_bytes))
@@ -182,22 +219,35 @@ class TorrentEngine:
             priorities[i] = 7  # tiny files: fetch them first
         params.file_priorities = priorities
         # Not auto-managed (so the queue never pauses it) and explicitly not paused.
-        params.flags = ((params.flags | lt.torrent_flags.sequential_download)
-                        & ~lt.torrent_flags.auto_managed & ~lt.torrent_flags.paused)
+        params.flags = (
+            (params.flags | lt.torrent_flags.sequential_download)
+            & ~lt.torrent_flags.auto_managed
+            & ~lt.torrent_flags.paused
+        )
         handle = self.session.add_torrent(params)
-        for url in web_seeds or []:  # BEP 19 HTTP seeds that serve every file without redirects
+        for url in (
+            web_seeds or []
+        ):  # BEP 19 HTTP seeds that serve every file without redirects
             handle.add_url_seed(url)
 
         job = Job(
-            movie_id=movie_id, handle=handle, save_path=save_path, file_index=index,
-            rel_path=fs.file_path(index), file_offset=fs.file_offset(index), file_size=fs.file_size(index),
-            piece_length=info.piece_length(), subtitle_files=subs,
+            movie_id=movie_id,
+            handle=handle,
+            save_path=save_path,
+            file_index=index,
+            rel_path=fs.file_path(index),
+            file_offset=fs.file_offset(index),
+            file_size=fs.file_size(index),
+            piece_length=info.piece_length(),
+            subtitle_files=subs,
         )
         # Subtitles are tiny: give their pieces a deadline too, otherwise the video's
         # time-critical pieces would starve them.
         for i, _ in subs:
             first_sub = fs.file_offset(i) // job.piece_length
-            last_sub = (fs.file_offset(i) + max(fs.file_size(i), 1) - 1) // job.piece_length
+            last_sub = (
+                fs.file_offset(i) + max(fs.file_size(i), 1) - 1
+            ) // job.piece_length
             for p in range(first_sub, last_sub + 1):
                 handle.set_piece_deadline(p, 0)
         # Start of the file first; the end too because players read the index (moov / cues) there.
@@ -205,7 +255,12 @@ class TorrentEngine:
         self.jobs[movie_id] = job
         self.ensure_startup_pieces(job, 0)
         self._by_hash[str(handle.info_hash())] = job
-        log.info("Movie %s: downloading %s (%d MB)", movie_id, job.rel_path, job.file_size // 2 ** 20)
+        log.info(
+            "Movie %s: downloading %s (%d MB)",
+            movie_id,
+            job.rel_path,
+            job.file_size // 2**20,
+        )
         return job
 
     def remove(self, movie_id: int, delete_files: bool = False) -> None:
@@ -226,9 +281,13 @@ class TorrentEngine:
         if not job:
             return None
         st = job.handle.status()
-        done = job.handle.file_progress(flags=lt.torrent_handle.piece_granularity)[job.file_index]
+        done = job.handle.file_progress(flags=lt.torrent_handle.piece_granularity)[
+            job.file_index
+        ]
         return {
-            "progress": round(100.0 * done / job.file_size, 1) if job.file_size else 0.0,
+            "progress": (
+                round(100.0 * done / job.file_size, 1) if job.file_size else 0.0
+            ),
             "download_rate": int(st.download_payload_rate),
             "peers": int(st.num_peers),
             "seeds": int(st.num_seeds),
@@ -237,7 +296,10 @@ class TorrentEngine:
         }
 
     def startup_pieces(self, job: Job, ready_bytes: int) -> list[int]:
-        head = range(job.piece_of(0), job.piece_of(max(0, min(job.file_size, ready_bytes) - 1)) + 1)
+        head = range(
+            job.piece_of(0),
+            job.piece_of(max(0, min(job.file_size, ready_bytes) - 1)) + 1,
+        )
         last = job.piece_of(job.file_size - 1)
         tail = [p for p in (last - 1, last) if p >= job.piece_of(0)]
         return sorted(set(head) | set(tail))
@@ -265,7 +327,9 @@ class TorrentEngine:
         """Enough contiguous data at the start (and the end, for the index) to play smoothly."""
         head_end = min(job.file_size, ready_bytes) - 1
         tail_start = max(0, job.file_size - 1)
-        return job.finished or (job.has_range(0, head_end) and job.has_range(tail_start, job.file_size - 1))
+        return job.finished or (
+            job.has_range(0, head_end) and job.has_range(tail_start, job.file_size - 1)
+        )
 
     # --- alerts -----------------------------------------------------------
     async def _alert_loop(self) -> None:
@@ -273,7 +337,11 @@ class TorrentEngine:
             try:
                 for alert in self.session.pop_alerts():
                     handle = getattr(alert, "handle", None)
-                    job = self._by_hash.get(str(handle.info_hash())) if handle is not None and handle.is_valid() else None
+                    job = (
+                        self._by_hash.get(str(handle.info_hash()))
+                        if handle is not None and handle.is_valid()
+                        else None
+                    )
                     if job is None:
                         continue
                     if isinstance(alert, lt.piece_finished_alert):
@@ -284,7 +352,9 @@ class TorrentEngine:
                             job.pulse()
                             if self.on_finished:
                                 asyncio.create_task(self.on_finished(job))
-                    elif isinstance(alert, (lt.file_error_alert, lt.torrent_error_alert)):
+                    elif isinstance(
+                        alert, (lt.file_error_alert, lt.torrent_error_alert)
+                    ):
                         job.error = alert.message()
                         log.error("Movie %s: %s", job.movie_id, job.error)
                         job.pulse()

@@ -1,4 +1,5 @@
 """Response serializers. Input validation lives in validation.py and the routers."""
+
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -25,21 +26,31 @@ class PrivateUser(PublicUser):
 
 def public_user(u: User) -> dict:
     return PublicUser(
-        id=u.id, username=u.username, first_name=u.first_name, last_name=u.last_name,
-        profile_picture_url=u.avatar_url, language=u.language, created_at=u.created_at,
+        id=u.id,
+        username=u.username,
+        first_name=u.first_name,
+        last_name=u.last_name,
+        profile_picture_url=u.avatar_url,
+        language=u.language,
+        created_at=u.created_at,
     ).model_dump(mode="json")
 
 
 def private_user(u: User) -> dict:
     return PrivateUser(
-        **public_user(u), email=u.email, has_password=u.password_hash is not None,
-        oauth_providers=sorted(i.provider for i in u.identities), api_client_id=u.api_client_id,
+        **public_user(u),
+        email=u.email,
+        has_password=u.password_hash is not None,
+        oauth_providers=sorted(i.provider for i in u.identities),
+        api_client_id=u.api_client_id,
     ).model_dump(mode="json")
 
 
 def user_view(u: User, viewer: User | None) -> dict:
     """The email address is only ever disclosed to the profile owner."""
-    return private_user(u) if viewer is not None and viewer.id == u.id else public_user(u)
+    return (
+        private_user(u) if viewer is not None and viewer.id == u.id else public_user(u)
+    )
 
 
 def comment_view(c: Comment) -> dict:

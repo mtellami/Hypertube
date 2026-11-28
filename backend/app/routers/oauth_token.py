@@ -5,6 +5,7 @@ Supported grants:
   * password: username + password (resource-owner password grant)
 Credentials may be sent as form fields, JSON, or HTTP Basic auth (client_id:client_secret).
 """
+
 import base64
 import binascii
 from datetime import timedelta
@@ -24,8 +25,11 @@ router = APIRouter(prefix="/api/oauth", tags=["oauth2"])
 
 def _error(code: str, description: str, status: int = 400) -> JSONResponse:
     headers = {"WWW-Authenticate": "Basic"} if status == 401 else None
-    return JSONResponse({"error": code, "error_description": description}, status_code=status,
-                        headers=headers or {"Cache-Control": "no-store"})
+    return JSONResponse(
+        {"error": code, "error_description": description},
+        status_code=status,
+        headers=headers or {"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/token")
@@ -55,7 +59,9 @@ async def token(request: Request, db: Session = Depends(get_db)):
     if grant == "client_credentials":
         cid, secret = data.get("client_id"), data.get("client_secret")
         if not cid or not secret:
-            return _error("invalid_request", "client_id and client_secret are required.")
+            return _error(
+                "invalid_request", "client_id and client_secret are required."
+            )
         user = db.scalar(select(User).where(User.api_client_id == cid))
         if not verify_password(secret, user.api_client_secret_hash if user else None):
             return _error("invalid_client", "Invalid client credentials.", 401)
@@ -63,7 +69,9 @@ async def token(request: Request, db: Session = Depends(get_db)):
         username, password = data.get("username"), data.get("password")
         if not username or not password:
             return _error("invalid_request", "username and password are required.")
-        user = db.scalar(select(User).where(func.lower(User.username) == username.lower()))
+        user = db.scalar(
+            select(User).where(func.lower(User.username) == username.lower())
+        )
         if not verify_password(password, user.password_hash if user else None):
             return _error("invalid_grant", "Invalid username or password.")
     else:

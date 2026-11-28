@@ -1,4 +1,5 @@
 """Application settings, loaded from environment variables (see .env.example)."""
+
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -63,8 +64,16 @@ def base_url(request) -> str:
     """Public base URL for this request, only if it is in the allowlist (prevents Host-header
     injection into reset links and OAuth redirects); otherwise PUBLIC_URL."""
     s = get_settings()
-    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme).split(",")[0].strip()
-    host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(",")[0].strip()
+    proto = (
+        (request.headers.get("x-forwarded-proto") or request.url.scheme)
+        .split(",")[0]
+        .strip()
+    )
+    host = (
+        (request.headers.get("x-forwarded-host") or request.headers.get("host") or "")
+        .split(",")[0]
+        .strip()
+    )
     candidate = f"{proto}://{host}".rstrip("/")
     allowed = s.allowed_public_urls
     return candidate if candidate in allowed else allowed[0]

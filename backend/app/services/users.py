@@ -1,4 +1,5 @@
 """User creation and profile update logic shared by the UI and the REST API."""
+
 import io
 import os
 import re
@@ -61,11 +62,19 @@ def validate_registration(db: Session, data: dict) -> dict:
     errors: dict[str, str] = {}
     out = {
         "email": _run(errors, "email", v.check_email, data.get("email", "")),
-        "username": _run(errors, "username", v.check_username, data.get("username", "")),
-        "first_name": _run(errors, "first_name", v.check_name, data.get("first_name", "")),
+        "username": _run(
+            errors, "username", v.check_username, data.get("username", "")
+        ),
+        "first_name": _run(
+            errors, "first_name", v.check_name, data.get("first_name", "")
+        ),
         "last_name": _run(errors, "last_name", v.check_name, data.get("last_name", "")),
-        "password": _run(errors, "password", v.check_password, data.get("password", "")),
-        "language": _run(errors, "language", v.check_language, data.get("language") or "en"),
+        "password": _run(
+            errors, "password", v.check_password, data.get("password", "")
+        ),
+        "language": _run(
+            errors, "language", v.check_language, data.get("language") or "en"
+        ),
     }
     if out["username"] and username_taken(db, out["username"]):
         errors["username"] = "This username is already taken."
@@ -78,8 +87,11 @@ def validate_registration(db: Session, data: dict) -> dict:
 
 def create_user(db: Session, data: dict) -> User:
     user = User(
-        email=data["email"], username=data["username"], first_name=data["first_name"],
-        last_name=data["last_name"], password_hash=hash_password(data["password"]),
+        email=data["email"],
+        username=data["username"],
+        first_name=data["first_name"],
+        last_name=data["last_name"],
+        password_hash=hash_password(data["password"]),
         language=data["language"],
     )
     db.add(user)
@@ -151,7 +163,10 @@ def save_avatar(db: Session, user: User, raw: bytes) -> User:
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(raw)) as probe:
                 if probe.format not in ("JPEG", "PNG", "WEBP", "GIF"):
-                    raise FieldErrors({"file": "Only JPEG, PNG, WebP or GIF pictures are allowed."}, 415)
+                    raise FieldErrors(
+                        {"file": "Only JPEG, PNG, WebP or GIF pictures are allowed."},
+                        415,
+                    )
                 probe.verify()
             with Image.open(io.BytesIO(raw)) as img:
                 img.seek(0)
@@ -161,8 +176,14 @@ def save_avatar(db: Session, user: User, raw: bytes) -> User:
                 img.save(out, "WEBP", quality=85)
     except FieldErrors:
         raise
-    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError,
-            Image.DecompressionBombWarning, SyntaxError):
+    except (
+        UnidentifiedImageError,
+        OSError,
+        ValueError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+        SyntaxError,
+    ):
         raise FieldErrors({"file": "This file is not a valid image."}, 415) from None
 
     name = f"{secrets.token_urlsafe(18)}.webp"

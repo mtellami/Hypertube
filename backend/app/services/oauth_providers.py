@@ -1,4 +1,5 @@
 """OAuth2 authorization-code flows (42, GitHub, Discord, GitLab), implemented with plain HTTP calls."""
+
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
@@ -101,7 +102,10 @@ async def fetch_profile(provider: str, code: str, base: str) -> OAuthProfile:
             access = tok.json().get("access_token") if tok.status_code == 200 else None
             if not access:
                 raise OAuthError("Token exchange failed")
-            headers = {"Authorization": f"Bearer {access}", "Accept": "application/json"}
+            headers = {
+                "Authorization": f"Bearer {access}",
+                "Accept": "application/json",
+            }
 
             if provider == "42":
                 r = await client.get("https://api.intra.42.fr/v2/me", headers=headers)
@@ -113,24 +117,39 @@ async def fetch_profile(provider: str, code: str, base: str) -> OAuthProfile:
                     provider_user_id=str(me["id"]),
                     email=me.get("email"),
                     username=me.get("login") or f"student{me['id']}",
-                    first_name=(me.get("first_name") or me.get("login") or "Student")[:64],
-                    last_name=(me.get("last_name") or me.get("login") or "Student")[:64],
-                    avatar_url=image if image and image.startswith("https://") else None,
+                    first_name=(me.get("first_name") or me.get("login") or "Student")[
+                        :64
+                    ],
+                    last_name=(me.get("last_name") or me.get("login") or "Student")[
+                        :64
+                    ],
+                    avatar_url=(
+                        image if image and image.startswith("https://") else None
+                    ),
                 )
 
             if provider == "discord":
-                r = await client.get("https://discord.com/api/users/@me", headers=headers)
+                r = await client.get(
+                    "https://discord.com/api/users/@me", headers=headers
+                )
                 if r.status_code != 200:
                     raise OAuthError("Profile request failed")
                 me = r.json()
-                avatar = (f"https://cdn.discordapp.com/avatars/{me['id']}/{me['avatar']}.png?size=256"
-                          if me.get("avatar") else None)
-                first, last = _split_name(me.get("global_name"), me.get("username") or "User")
+                avatar = (
+                    f"https://cdn.discordapp.com/avatars/{me['id']}/{me['avatar']}.png?size=256"
+                    if me.get("avatar")
+                    else None
+                )
+                first, last = _split_name(
+                    me.get("global_name"), me.get("username") or "User"
+                )
                 return OAuthProfile(
                     provider_user_id=str(me["id"]),
                     email=me.get("email") if me.get("verified") else None,
                     username=me.get("username") or f"discord{me['id']}",
-                    first_name=first, last_name=last, avatar_url=avatar,
+                    first_name=first,
+                    last_name=last,
+                    avatar_url=avatar,
                 )
 
             if provider == "gitlab":
@@ -144,8 +163,11 @@ async def fetch_profile(provider: str, code: str, base: str) -> OAuthProfile:
                     provider_user_id=str(me["id"]),
                     email=me.get("email"),  # the account's confirmed primary address
                     username=me.get("username") or f"gitlab{me['id']}",
-                    first_name=first, last_name=last,
-                    avatar_url=avatar if avatar and avatar.startswith("https://") else None,
+                    first_name=first,
+                    last_name=last,
+                    avatar_url=(
+                        avatar if avatar and avatar.startswith("https://") else None
+                    ),
                 )
 
             r = await client.get("https://api.github.com/user", headers=headers)
@@ -153,7 +175,9 @@ async def fetch_profile(provider: str, code: str, base: str) -> OAuthProfile:
                 raise OAuthError("Profile request failed")
             me = r.json()
             email = None
-            emails = await client.get("https://api.github.com/user/emails", headers=headers)
+            emails = await client.get(
+                "https://api.github.com/user/emails", headers=headers
+            )
             if emails.status_code == 200:
                 verified = [e for e in emails.json() if e.get("verified")]
                 primary = [e for e in verified if e.get("primary")]

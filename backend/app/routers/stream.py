@@ -1,4 +1,5 @@
 """Video streaming endpoints (web player)."""
+
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,13 +29,18 @@ def _movie(db: Session, movie_id: int) -> Movie:
 
 
 @router.post("/movies/{movie_id:int}/stream")
-async def start_stream(movie_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+async def start_stream(
+    movie_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
     """Start (or resume) the server-side download and mark the movie as watched."""
     movie = _movie(db, movie_id)
     now = datetime.now(timezone.utc)
     movie.last_watched_at = now
-    watched = db.scalar(select(WatchedMovie).where(WatchedMovie.user_id == user.id,
-                                                    WatchedMovie.movie_id == movie_id))
+    watched = db.scalar(
+        select(WatchedMovie).where(
+            WatchedMovie.user_id == user.id, WatchedMovie.movie_id == movie_id
+        )
+    )
     if watched:
         watched.watched_at = now
     else:
@@ -45,7 +51,9 @@ async def start_stream(movie_id: int, db: Session = Depends(get_db), user: User 
 
 
 @router.get("/movies/{movie_id:int}/stream")
-async def stream_status(movie_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+async def stream_status(
+    movie_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)
+):
     return await streaming.status(_movie(db, movie_id))
 
 
@@ -85,14 +93,23 @@ def _ranged(request: Request, movie: Movie, content_type: str) -> Response:
     }
     if rng:
         headers["Content-Range"] = f"bytes {start}-{end}/{size}"
-    return StreamingResponse(read_range(Path(path), start, end, job), status_code=206 if rng else 200,
-                             media_type=content_type, headers=headers)
+    return StreamingResponse(
+        read_range(Path(path), start, end, job),
+        status_code=206 if rng else 200,
+        media_type=content_type,
+        headers=headers,
+    )
 
 
 @router.get("/movies/{movie_id:int}/stream/video")
-async def stream_video(movie_id: int, request: Request, start: float = Query(0, ge=0, le=86400),
-                       quality: int | None = Query(None), db: Session = Depends(get_db),
-                       _: User = Depends(current_user)):
+async def stream_video(
+    movie_id: int,
+    request: Request,
+    start: float = Query(0, ge=0, le=86400),
+    quality: int | None = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(current_user),
+):
     """Native mp4/webm: byte ranges. Otherwise (or when a resolution is requested):
     fragmented MP4 produced on the fly by ffmpeg, starting at `start` seconds."""
     movie = _movie(db, movie_id)
@@ -110,12 +127,17 @@ async def stream_video(movie_id: int, request: Request, start: float = Query(0, 
         raise HTTPException(503, "The video is not ready yet.")
     if quality is not None and quality not in transcode.available_qualities(info):
         raise HTTPException(422, "This resolution is higher than the source.")
-    return StreamingResponse(transcode.stream(source, start, info, quality), media_type="video/mp4",
-                             headers={"Cache-Control": "no-store"})
+    return StreamingResponse(
+        transcode.stream(source, start, info, quality),
+        media_type="video/mp4",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/internal/raw/{movie_id:int}", include_in_schema=False)
-async def internal_raw(movie_id: int, request: Request, key: str = "", db: Session = Depends(get_db)):
+async def internal_raw(
+    movie_id: int, request: Request, key: str = "", db: Session = Depends(get_db)
+):
     """Loopback-only source for ffmpeg while the torrent is still downloading."""
     client = request.client.host if request.client else ""
     if key != streaming.INTERNAL_KEY or client not in ("127.0.0.1", "::1"):
@@ -124,7 +146,12 @@ async def internal_raw(movie_id: int, request: Request, key: str = "", db: Sessi
 
 
 @router.get("/movies/{movie_id:int}/subtitles/{subtitle_id:int}")
-def subtitle_file(movie_id: int, subtitle_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+def subtitle_file(
+    movie_id: int,
+    subtitle_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(current_user),
+):
     sub = db.get(Subtitle, subtitle_id)
     if sub is None or sub.movie_id != movie_id:
         raise HTTPException(404, "Subtitle not found.")
@@ -132,4 +159,8 @@ def subtitle_file(movie_id: int, subtitle_id: int, db: Session = Depends(get_db)
     path = (base / sub.path).resolve()
     if base not in path.parents or not path.is_file():
         raise HTTPException(404, "Subtitle not found.")
-    return FileResponse(path, media_type="text/vtt; charset=utf-8", headers={"Cache-Control": "private, max-age=3600"})
+    return FileResponse(
+        path,
+        media_type="text/vtt; charset=utf-8",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )

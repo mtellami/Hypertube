@@ -20,8 +20,12 @@ def send_mail(to: str, subject: str, text: str, html: str | None = None) -> bool
         msg.add_alternative(html, subtype="html")
     try:
         if s.smtp_ssl:
-            server: smtplib.SMTP = smtplib.SMTP_SSL(s.smtp_host, s.smtp_port, timeout=15,
-                                                    context=ssl.create_default_context())
+            server: smtplib.SMTP = smtplib.SMTP_SSL(
+                s.smtp_host,
+                s.smtp_port,
+                timeout=15,
+                context=ssl.create_default_context(),
+            )
         else:
             server = smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=15)
         with server:
@@ -37,15 +41,27 @@ def send_mail(to: str, subject: str, text: str, html: str | None = None) -> bool
 
 
 RESET_TEXTS = {
-    "en": ("Reset your Hypertube password", "Hi {name},",
-           "Someone asked to reset your Hypertube password. Use the link below within one hour:",
-           "Reset password", "If you did not request this, you can ignore this email."),
-    "fr": ("Réinitialisez votre mot de passe Hypertube", "Bonjour {name},",
-           "Une réinitialisation de votre mot de passe Hypertube a été demandée. Utilisez ce lien dans l'heure :",
-           "Réinitialiser le mot de passe", "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email."),
-    "es": ("Restablece tu contraseña de Hypertube", "Hola {name},",
-           "Alguien solicitó restablecer tu contraseña de Hypertube. Usa este enlace durante la próxima hora:",
-           "Restablecer contraseña", "Si no lo solicitaste, puedes ignorar este correo."),
+    "en": (
+        "Reset your Hypertube password",
+        "Hi {name},",
+        "Someone asked to reset your Hypertube password. Use the link below within one hour:",
+        "Reset password",
+        "If you did not request this, you can ignore this email.",
+    ),
+    "fr": (
+        "Réinitialisez votre mot de passe Hypertube",
+        "Bonjour {name},",
+        "Une réinitialisation de votre mot de passe Hypertube a été demandée. Utilisez ce lien dans l'heure :",
+        "Réinitialiser le mot de passe",
+        "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.",
+    ),
+    "es": (
+        "Restablece tu contraseña de Hypertube",
+        "Hola {name},",
+        "Alguien solicitó restablecer tu contraseña de Hypertube. Usa este enlace durante la próxima hora:",
+        "Restablecer contraseña",
+        "Si no lo solicitaste, puedes ignorar este correo.",
+    ),
 }
 
 

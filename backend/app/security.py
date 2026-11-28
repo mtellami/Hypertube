@@ -1,4 +1,5 @@
 """Password hashing, tokens and authentication dependencies."""
+
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -86,8 +87,11 @@ def _resolve_user(request: Request, db: Session) -> User | None:
     if auth.lower().startswith("bearer "):
         user_id = decode_token(auth[7:].strip(), "api")
         if user_id is None:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token",
-                                headers={"WWW-Authenticate": "Bearer"})
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                "Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     else:
         cookie = request.cookies.get(SESSION_COOKIE)
         if not cookie:
@@ -97,7 +101,10 @@ def _resolve_user(request: Request, db: Session) -> User | None:
             return None
         # Cookie-authenticated state-changing requests must carry a custom header that
         # cross-site forms cannot set: this protects against CSRF.
-        if request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get(CSRF_HEADER) != "hypertube":
+        if (
+            request.method not in ("GET", "HEAD", "OPTIONS")
+            and request.headers.get(CSRF_HEADER) != "hypertube"
+        ):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Missing CSRF header")
     return db.get(User, user_id)
 
@@ -109,6 +116,9 @@ def optional_user(request: Request, db: Session = Depends(get_db)) -> User | Non
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user = _resolve_user(request, db)
     if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required",
-                            headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user

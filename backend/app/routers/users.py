@@ -7,7 +7,13 @@ from ..db import get_db
 from ..models import Movie, User, WatchedMovie
 from ..schemas import movie_card, private_user, public_user, user_view
 from ..security import clear_session_cookie, current_user, hash_password, random_token
-from ..services.users import MAX_AVATAR_BYTES, FieldErrors, remove_local_avatar, save_avatar, update_user
+from ..services.users import (
+    MAX_AVATAR_BYTES,
+    FieldErrors,
+    remove_local_avatar,
+    save_avatar,
+    update_user,
+)
 
 router = APIRouter(prefix="/api", tags=["users"])
 
@@ -27,7 +33,9 @@ def list_users(db: Session = Depends(get_db), _: User = Depends(current_user)):
 
 
 @router.get("/users/{user_id:int}")
-def get_user(user_id: int, db: Session = Depends(get_db), viewer: User = Depends(current_user)):
+def get_user(
+    user_id: int, db: Session = Depends(get_db), viewer: User = Depends(current_user)
+):
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(404, "User not found.")
@@ -35,8 +43,12 @@ def get_user(user_id: int, db: Session = Depends(get_db), viewer: User = Depends
 
 
 @router.patch("/users/{user_id:int}")
-async def patch_user(user_id: int, request: Request, db: Session = Depends(get_db),
-                     viewer: User = Depends(current_user)):
+async def patch_user(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    viewer: User = Depends(current_user),
+):
     target = db.get(User, user_id)
     if target is None:
         raise HTTPException(404, "User not found.")
@@ -46,12 +58,17 @@ async def patch_user(user_id: int, request: Request, db: Session = Depends(get_d
     try:
         user = update_user(db, viewer, data)
     except FieldErrors as exc:
-        return JSONResponse({"detail": "Validation failed.", "errors": exc.errors}, status_code=exc.status)
+        return JSONResponse(
+            {"detail": "Validation failed.", "errors": exc.errors},
+            status_code=exc.status,
+        )
     return private_user(user)
 
 
 @router.delete("/users/{user_id:int}", status_code=204)
-def delete_user(user_id: int, db: Session = Depends(get_db), viewer: User = Depends(current_user)):
+def delete_user(
+    user_id: int, db: Session = Depends(get_db), viewer: User = Depends(current_user)
+):
     """Delete your own account (and your comments). Any other account returns 403."""
     target = db.get(User, user_id)
     if target is None:
@@ -67,19 +84,30 @@ def delete_user(user_id: int, db: Session = Depends(get_db), viewer: User = Depe
 
 
 @router.get("/users/{user_id:int}/watched")
-def watched_movies(user_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+def watched_movies(
+    user_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)
+):
     if db.get(User, user_id) is None:
         raise HTTPException(404, "User not found.")
-    rows = db.execute(
-        select(Movie).join(WatchedMovie, WatchedMovie.movie_id == Movie.id)
-        .where(WatchedMovie.user_id == user_id).order_by(WatchedMovie.watched_at.desc()).limit(24)
-    ).scalars().all()
+    rows = (
+        db.execute(
+            select(Movie)
+            .join(WatchedMovie, WatchedMovie.movie_id == Movie.id)
+            .where(WatchedMovie.user_id == user_id)
+            .order_by(WatchedMovie.watched_at.desc())
+            .limit(24)
+        )
+        .scalars()
+        .all()
+    )
     return [movie_card(m, True) for m in rows]
 
 
 # --- Web UI helpers (expected errors reported as {"ok": false}) --------------
 @router.patch("/me")
-async def update_me(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+async def update_me(
+    request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
     try:
         data = await request.json()
     except ValueError:
@@ -87,22 +115,34 @@ async def update_me(request: Request, db: Session = Depends(get_db), user: User 
     try:
         user = update_user(db, user, data)
     except FieldErrors as exc:
-        return {"ok": False, "error": "Please fix the highlighted fields.", "fields": exc.errors}
+        return {
+            "ok": False,
+            "error": "Please fix the highlighted fields.",
+            "fields": exc.errors,
+        }
     return {"ok": True, "user": private_user(user)}
 
 
 @router.post("/me/avatar")
-async def upload_avatar(file: UploadFile, db: Session = Depends(get_db), user: User = Depends(current_user)):
+async def upload_avatar(
+    file: UploadFile, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
     raw = await file.read(MAX_AVATAR_BYTES + 1)
     try:
         user = save_avatar(db, user, raw)
     except FieldErrors as exc:
-        return {"ok": False, "error": exc.errors.get("file", "Invalid file."), "fields": exc.errors}
+        return {
+            "ok": False,
+            "error": exc.errors.get("file", "Invalid file."),
+            "fields": exc.errors,
+        }
     return {"ok": True, "user": private_user(user)}
 
 
 @router.post("/me/api-credentials")
-def regenerate_credentials(db: Session = Depends(get_db), user: User = Depends(current_user)):
+def regenerate_credentials(
+    db: Session = Depends(get_db), user: User = Depends(current_user)
+):
     """Create (or rotate) the OAuth2 client credentials of the current user.
     The secret is only shown once; a hash is stored."""
     user.api_client_id = f"ht_{random_token(12)}"

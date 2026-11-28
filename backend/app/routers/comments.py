@@ -25,7 +25,9 @@ async def _body(request: Request) -> dict:
 
 def _clean_comment(value) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise HTTPException(422, "Field 'comment' is required and must be a non-empty string.")
+        raise HTTPException(
+            422, "Field 'comment' is required and must be a non-empty string."
+        )
     value = value.strip()
     if len(value) > MAX_LEN:
         raise HTTPException(422, f"A comment cannot exceed {MAX_LEN} characters.")
@@ -33,7 +35,11 @@ def _clean_comment(value) -> str:
 
 
 def _get_comment(db: Session, comment_id: int) -> Comment:
-    comment = db.scalar(select(Comment).options(joinedload(Comment.user)).where(Comment.id == comment_id))
+    comment = db.scalar(
+        select(Comment)
+        .options(joinedload(Comment.user))
+        .where(Comment.id == comment_id)
+    )
     if comment is None:
         raise HTTPException(404, "Comment not found.")
     return comment
@@ -51,40 +57,64 @@ def _create(db: Session, user: User, movie_id, text) -> Comment:
 
 
 @router.get("/comments")
-def latest_comments(response: Response, db: Session = Depends(get_db), _: User = Depends(current_user),
-                    page: int = Query(1, ge=1, le=10000), limit: int = Query(50, ge=1, le=100)):
+def latest_comments(
+    response: Response,
+    db: Session = Depends(get_db),
+    _: User = Depends(current_user),
+    page: int = Query(1, ge=1, le=10000),
+    limit: int = Query(50, ge=1, le=100),
+):
     """Latest comments, newest first. Paginated with ?page= and ?limit= (total in X-Total-Count)."""
     total = db.scalar(select(func.count(Comment.id)))
-    rows = db.scalars(select(Comment).options(joinedload(Comment.user))
-                      .order_by(Comment.created_at.desc(), Comment.id.desc())
-                      .offset((page - 1) * limit).limit(limit)).all()
+    rows = db.scalars(
+        select(Comment)
+        .options(joinedload(Comment.user))
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    ).all()
     response.headers["X-Total-Count"] = str(total)
     return [comment_view(c) for c in rows]
 
 
 @router.get("/users/{user_id:int}/comments")
-def user_comments(user_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+def user_comments(
+    user_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)
+):
     if db.get(User, user_id) is None:
         raise HTTPException(404, "User not found.")
-    rows = db.scalars(select(Comment).options(joinedload(Comment.user)).where(Comment.user_id == user_id)
-                      .order_by(Comment.created_at.desc(), Comment.id.desc()).limit(100)).all()
+    rows = db.scalars(
+        select(Comment)
+        .options(joinedload(Comment.user))
+        .where(Comment.user_id == user_id)
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
+        .limit(100)
+    ).all()
     return [comment_view(c) for c in rows]
 
 
 @router.post("/comments", status_code=201)
-async def post_comment(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+async def post_comment(
+    request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
     data = await _body(request)
     return comment_view(_create(db, user, data.get("movie_id"), data.get("comment")))
 
 
 @router.get("/comments/{comment_id:int}")
-def get_comment(comment_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+def get_comment(
+    comment_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)
+):
     return comment_view(_get_comment(db, comment_id))
 
 
 @router.patch("/comments/{comment_id:int}")
-async def patch_comment(comment_id: int, request: Request, db: Session = Depends(get_db),
-                        user: User = Depends(current_user)):
+async def patch_comment(
+    comment_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
     comment = _get_comment(db, comment_id)
     if comment.user_id != user.id:
         raise HTTPException(403, "You can only edit your own comments.")
@@ -101,7 +131,9 @@ async def patch_comment(comment_id: int, request: Request, db: Session = Depends
 
 
 @router.delete("/comments/{comment_id:int}", status_code=204)
-def delete_comment(comment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def delete_comment(
+    comment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
     comment = _get_comment(db, comment_id)
     if comment.user_id != user.id:
         raise HTTPException(403, "You can only delete your own comments.")
@@ -111,17 +143,27 @@ def delete_comment(comment_id: int, db: Session = Depends(get_db), user: User = 
 
 
 @router.get("/movies/{movie_id:int}/comments")
-def movie_comments(movie_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+def movie_comments(
+    movie_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)
+):
     if db.get(Movie, movie_id) is None:
         raise HTTPException(404, "Movie not found.")
-    rows = db.scalars(select(Comment).options(joinedload(Comment.user)).where(Comment.movie_id == movie_id)
-                      .order_by(Comment.created_at.desc(), Comment.id.desc())).all()
+    rows = db.scalars(
+        select(Comment)
+        .options(joinedload(Comment.user))
+        .where(Comment.movie_id == movie_id)
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
+    ).all()
     return [comment_view(c) for c in rows]
 
 
 @router.post("/movies/{movie_id:int}/comments", status_code=201)
-async def post_movie_comment(movie_id: int, request: Request, db: Session = Depends(get_db),
-                             user: User = Depends(current_user)):
+async def post_movie_comment(
+    movie_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
     data = await _body(request)
     if "movie_id" in data and data["movie_id"] != movie_id:
         raise HTTPException(422, "movie_id in the body does not match the URL.")

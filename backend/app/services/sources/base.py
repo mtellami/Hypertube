@@ -26,8 +26,14 @@ def strip_html(text: str | None, limit: int = 4000) -> str | None:
     if not text:
         return None
     text = _TAG_RE.sub(" ", text)
-    text = (text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&quot;", '"')
-            .replace("&#39;", "'").replace("&lt;", "<").replace("&gt;", ">"))
+    text = (
+        text.replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&quot;", '"')
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+    )
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\s*\n\s*", "\n", text).strip()
     return text[:limit] or None

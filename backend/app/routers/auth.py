@@ -5,6 +5,7 @@ These endpoints report *expected* user errors (bad credentials, invalid fields) 
 request messages during normal use. The public REST API (users/movies/comments,
 oauth/token) uses standard HTTP status codes.
 """
+
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -19,12 +20,22 @@ from ..db import get_db
 from ..models import OAuthIdentity, PasswordResetToken, User
 from ..schemas import private_user
 from ..security import (
-    clear_session_cookie, hash_password, optional_user, random_token, set_session_cookie, sha256,
+    clear_session_cookie,
+    hash_password,
+    optional_user,
+    random_token,
+    set_session_cookie,
+    sha256,
     verify_password,
 )
 from ..services import oauth_providers as oauth
 from ..services.mailer import send_password_reset
-from ..services.users import FieldErrors, create_user, unique_username, validate_registration
+from ..services.users import (
+    FieldErrors,
+    create_user,
+    unique_username,
+    validate_registration,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["session"])
 log = logging.getLogger("hypertube.auth")
@@ -65,10 +76,20 @@ async def register(request: Request, db: Session = Depends(get_db)):
 async def login(request: Request, db: Session = Depends(get_db)):
     data = await _json(request)
     username, password = data.get("username"), data.get("password")
-    if not isinstance(username, str) or not isinstance(password, str) or not username or not password:
+    if (
+        not isinstance(username, str)
+        or not isinstance(password, str)
+        or not username
+        or not password
+    ):
         return _fail("Username and password are required.")
-    user = db.scalar(select(User).where(func.lower(User.username) == username.strip().lower()))
-    if not verify_password(password, user.password_hash if user else None) or user is None:
+    user = db.scalar(
+        select(User).where(func.lower(User.username) == username.strip().lower())
+    )
+    if (
+        not verify_password(password, user.password_hash if user else None)
+        or user is None
+    ):
         return _fail("Invalid username or password.")
     response = JSONResponse({"ok": True, "user": private_user(user)})
     set_session_cookie(response, user.id, request)
@@ -86,14 +107,21 @@ def logout():
 async def forgot_password(request: Request, db: Session = Depends(get_db)):
     data = await _json(request)
     try:
-        email = v.check_email(data.get("email", "") if isinstance(data.get("email"), str) else "")
+        email = v.check_email(
+            data.get("email", "") if isinstance(data.get("email"), str) else ""
+        )
     except ValueError as exc:
         return _fail(str(exc), {"email": str(exc)})
     user = db.scalar(select(User).where(User.email == email))
     if user:
         token = random_token()
-        db.add(PasswordResetToken(user_id=user.id, token_hash=sha256(token),
-                                  expires_at=datetime.now(timezone.utc) + timedelta(hours=1)))
+        db.add(
+            PasswordResetToken(
+                user_id=user.id,
+                token_hash=sha256(token),
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
         db.commit()
         link = f"{base_url(request)}/reset-password?token={token}"
         send_password_reset(user.email, user.first_name, user.language, link)
@@ -111,7 +139,9 @@ async def reset_password(request: Request, db: Session = Depends(get_db)):
         v.check_password(password if isinstance(password, str) else "")
     except ValueError as exc:
         return _fail(str(exc), {"password": str(exc)})
-    record = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == sha256(token)))
+    record = db.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.token_hash == sha256(token))
+    )
     now = datetime.now(timezone.utc)
     if record is None or record.used_at is not None or record.expires_at < now:
         return _fail("This reset link is invalid or has expired.")
@@ -131,7 +161,9 @@ def providers():
 
 
 def _login_error(code: str, request: Request) -> RedirectResponse:
-    response = RedirectResponse(f"{base_url(request)}/login?error={code}", status_code=302)
+    response = RedirectResponse(
+        f"{base_url(request)}/login?error={code}", status_code=302
+    )
     response.delete_cookie(STATE_COOKIE, path="/api/auth/oauth")
     return response
 
@@ -142,14 +174,25 @@ def oauth_login(provider: str, request: Request):
         return _login_error("oauth_unavailable", request)
     state = random_token(24)
     base = base_url(request)
-    response = RedirectResponse(oauth.authorize_url(provider, state, base), status_code=302)
-    response.set_cookie(STATE_COOKIE, f"{provider}:{state}", max_age=600, httponly=True,
-                        secure=base.startswith("https://"), samesite="lax", path="/api/auth/oauth")
+    response = RedirectResponse(
+        oauth.authorize_url(provider, state, base), status_code=302
+    )
+    response.set_cookie(
+        STATE_COOKIE,
+        f"{provider}:{state}",
+        max_age=600,
+        httponly=True,
+        secure=base.startswith("https://"),
+        samesite="lax",
+        path="/api/auth/oauth",
+    )
     return response
 
 
 @router.get("/oauth/{provider}/callback")
-async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db)):
+async def oauth_callback(
+    provider: str, request: Request, db: Session = Depends(get_db)
+):
     if provider not in oauth.PROVIDERS or not oauth.is_configured(provider):
         return _login_error("oauth_unavailable", request)
     code, state = request.query_params.get("code"), request.query_params.get("state")
@@ -174,10 +217,16 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     return response
 
 
-def _user_for_profile(db: Session, provider: str, profile: oauth.OAuthProfile) -> User | None:
+def _user_for_profile(
+    db: Session, provider: str, profile: oauth.OAuthProfile
+) -> User | None:
     """Find the account for a provider profile, link it by verified email, or create it."""
-    identity = db.scalar(select(OAuthIdentity).where(
-        OAuthIdentity.provider == provider, OAuthIdentity.provider_user_id == profile.provider_user_id))
+    identity = db.scalar(
+        select(OAuthIdentity).where(
+            OAuthIdentity.provider == provider,
+            OAuthIdentity.provider_user_id == profile.provider_user_id,
+        )
+    )
     if identity:
         user = identity.user
     else:
@@ -203,6 +252,12 @@ def _user_for_profile(db: Session, provider: str, profile: oauth.OAuthProfile) -
             )
             db.add(user)
             db.flush()
-        db.add(OAuthIdentity(user_id=user.id, provider=provider, provider_user_id=profile.provider_user_id))
+        db.add(
+            OAuthIdentity(
+                user_id=user.id,
+                provider=provider,
+                provider_user_id=profile.provider_user_id,
+            )
+        )
         db.commit()
     return user

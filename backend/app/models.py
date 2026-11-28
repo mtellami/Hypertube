@@ -1,7 +1,17 @@
 from datetime import datetime
 
 from sqlalchemy import (
-    JSON, BigInteger, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func,
+    JSON,
+    BigInteger,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,11 +31,17 @@ class User(Base):
     language: Mapped[str] = mapped_column(String(5), default="en", server_default="en")
     api_client_id: Mapped[str | None] = mapped_column(String(64), unique=True)
     api_client_secret_hash: Mapped[str | None] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
-    __table_args__ = (Index("ix_users_username_lower", func.lower(username), unique=True),)
+    __table_args__ = (
+        Index("ix_users_username_lower", func.lower(username), unique=True),
+    )
 
-    identities: Mapped[list["OAuthIdentity"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    identities: Mapped[list["OAuthIdentity"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class OAuthIdentity(Base):
@@ -33,7 +49,9 @@ class OAuthIdentity(Base):
     __table_args__ = (UniqueConstraint("provider", "provider_user_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
     provider: Mapped[str] = mapped_column(String(16))
     provider_user_id: Mapped[str] = mapped_column(String(64))
 
@@ -44,7 +62,9 @@ class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -69,23 +89,35 @@ class Movie(Base):
     directors: Mapped[list] = mapped_column(JSON, default=list)
     producers: Mapped[list] = mapped_column(JSON, default=list)
     cast: Mapped[list] = mapped_column(JSON, default=list)  # [{name, character, photo}]
-    popularity: Mapped[int] = mapped_column(BigInteger, default=0)  # downloads/views at the source
+    popularity: Mapped[int] = mapped_column(
+        BigInteger, default=0
+    )  # downloads/views at the source
     tmdb_id: Mapped[int | None] = mapped_column(Integer)
     imdb_id: Mapped[str | None] = mapped_column(String(16))
     page_url: Mapped[str | None] = mapped_column(String(1024))
-    added_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    added_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
     enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     details_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Download / cache state
-    download_state: Mapped[str] = mapped_column(String(16), default="none", server_default="none")
-    file_path: Mapped[str | None] = mapped_column(String(1024))  # relative to downloads dir
+    download_state: Mapped[str] = mapped_column(
+        String(16), default="none", server_default="none"
+    )
+    file_path: Mapped[str | None] = mapped_column(
+        String(1024)
+    )  # relative to downloads dir
     file_size: Mapped[int | None] = mapped_column(BigInteger)
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_watched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
-    subtitles: Mapped[list["Subtitle"]] = relationship(cascade="all, delete-orphan", order_by="Subtitle.lang")
+    subtitles: Mapped[list["Subtitle"]] = relationship(
+        cascade="all, delete-orphan", order_by="Subtitle.lang"
+    )
 
 
 class Subtitle(Base):
@@ -93,21 +125,31 @@ class Subtitle(Base):
     __table_args__ = (UniqueConstraint("movie_id", "lang", "source"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id", ondelete="CASCADE"), index=True)
+    movie_id: Mapped[int] = mapped_column(
+        ForeignKey("movies.id", ondelete="CASCADE"), index=True
+    )
     lang: Mapped[str] = mapped_column(String(8))
     label: Mapped[str] = mapped_column(String(64))
     source: Mapped[str] = mapped_column(String(16))
-    path: Mapped[str] = mapped_column(String(1024))  # relative to subtitles dir (WebVTT)
+    path: Mapped[str] = mapped_column(
+        String(1024)
+    )  # relative to subtitles dir (WebVTT)
 
 
 class Comment(Base):
     __tablename__ = "comments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    movie_id: Mapped[int] = mapped_column(
+        ForeignKey("movies.id", ondelete="CASCADE"), index=True
+    )
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship()
@@ -119,6 +161,12 @@ class WatchedMovie(Base):
     __table_args__ = (UniqueConstraint("user_id", "movie_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id", ondelete="CASCADE"), index=True)
-    watched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    movie_id: Mapped[int] = mapped_column(
+        ForeignKey("movies.id", ondelete="CASCADE"), index=True
+    )
+    watched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

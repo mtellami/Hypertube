@@ -1,5 +1,6 @@
 """Subtitles: conversion to WebVTT, subtitles shipped inside torrents, PeerTube captions and
 OpenSubtitles (optional API key)."""
+
 import logging
 import re
 from pathlib import Path
@@ -10,13 +11,48 @@ from ..config import get_settings
 
 log = logging.getLogger("hypertube.subtitles")
 
-LANG_LABELS = {"en": "English", "fr": "Français", "es": "Español", "de": "Deutsch", "it": "Italiano",
-               "pt": "Português", "nl": "Nederlands", "ru": "Русский", "ar": "العربية", "ja": "日本語",
-               "zh": "中文", "pl": "Polski", "sv": "Svenska", "tr": "Türkçe", "ko": "한국어"}
-NAME_LANG = {"en": "en", "eng": "en", "english": "en", "fr": "fr", "fre": "fr", "fra": "fr", "french": "fr",
-             "es": "es", "spa": "es", "spanish": "es", "de": "de", "ger": "de", "deu": "de", "german": "de",
-             "it": "it", "ita": "it", "italian": "it", "pt": "pt", "por": "pt", "nl": "nl", "dut": "nl",
-             "ru": "ru", "rus": "ru"}
+LANG_LABELS = {
+    "en": "English",
+    "fr": "Français",
+    "es": "Español",
+    "de": "Deutsch",
+    "it": "Italiano",
+    "pt": "Português",
+    "nl": "Nederlands",
+    "ru": "Русский",
+    "ar": "العربية",
+    "ja": "日本語",
+    "zh": "中文",
+    "pl": "Polski",
+    "sv": "Svenska",
+    "tr": "Türkçe",
+    "ko": "한국어",
+}
+NAME_LANG = {
+    "en": "en",
+    "eng": "en",
+    "english": "en",
+    "fr": "fr",
+    "fre": "fr",
+    "fra": "fr",
+    "french": "fr",
+    "es": "es",
+    "spa": "es",
+    "spanish": "es",
+    "de": "de",
+    "ger": "de",
+    "deu": "de",
+    "german": "de",
+    "it": "it",
+    "ita": "it",
+    "italian": "it",
+    "pt": "pt",
+    "por": "pt",
+    "nl": "nl",
+    "dut": "nl",
+    "ru": "ru",
+    "rus": "ru",
+}
 
 
 def subtitles_dir(movie_id: int) -> Path:
@@ -38,7 +74,9 @@ def decode(raw: bytes) -> str:
     return raw.decode("utf-8", "replace")
 
 
-_TS = re.compile(r"(?<![\d:])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[,.](\d{1,3}))?(?![\d,.])")
+_TS = re.compile(
+    r"(?<![\d:])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[,.](\d{1,3}))?(?![\d,.])"
+)
 
 
 def _ts(m: re.Match) -> str:
@@ -65,7 +103,7 @@ def to_vtt(text: str) -> str | None:
         timing = f"{_TS.sub(_ts, start.strip())} --> {_TS.sub(_ts, end_parts[0]) if end_parts else ''}"
         out.append(timing)
         # Strip SRT font/position tags; keep <i>, <b>, <u> which WebVTT supports.
-        for ln in lines[idx + 1:]:
+        for ln in lines[idx + 1 :]:
             ln = re.sub(r"</?font[^>]*>|\{\\[^}]*\}", "", ln)
             out.append(ln)
         out.append("")
@@ -99,11 +137,20 @@ def opensubtitles_enabled() -> bool:
 async def _os_headers(client: httpx.AsyncClient) -> dict:
     global _os_token
     s = get_settings()
-    headers = {"Api-Key": s.opensubtitles_api_key, "User-Agent": "Hypertube v1.0",
-               "Accept": "application/json"}
+    headers = {
+        "Api-Key": s.opensubtitles_api_key,
+        "User-Agent": "Hypertube v1.0",
+        "Accept": "application/json",
+    }
     if s.opensubtitles_username and _os_token is None:
-        r = await client.post(f"{OS_API}/login", headers=headers,
-                              json={"username": s.opensubtitles_username, "password": s.opensubtitles_password})
+        r = await client.post(
+            f"{OS_API}/login",
+            headers=headers,
+            json={
+                "username": s.opensubtitles_username,
+                "password": s.opensubtitles_password,
+            },
+        )
         if r.status_code == 200:
             _os_token = r.json().get("token")
     if _os_token:
@@ -119,15 +166,26 @@ async def opensubtitles_fetch(imdb_id: str, lang: str) -> str | None:
     try:
         async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
             headers = await _os_headers(client)
-            r = await client.get(f"{OS_API}/subtitles", headers=headers,
-                                 params={"imdb_id": numeric, "languages": lang, "order_by": "download_count"})
+            r = await client.get(
+                f"{OS_API}/subtitles",
+                headers=headers,
+                params={
+                    "imdb_id": numeric,
+                    "languages": lang,
+                    "order_by": "download_count",
+                },
+            )
             if r.status_code != 200:
                 return None
             for item in r.json().get("data", [])[:3]:
                 files = (item.get("attributes") or {}).get("files") or []
                 if not files:
                     continue
-                d = await client.post(f"{OS_API}/download", headers=headers, json={"file_id": files[0]["file_id"]})
+                d = await client.post(
+                    f"{OS_API}/download",
+                    headers=headers,
+                    json={"file_id": files[0]["file_id"]},
+                )
                 if d.status_code != 200 or not d.json().get("link"):
                     return None
                 content = await client.get(d.json()["link"])

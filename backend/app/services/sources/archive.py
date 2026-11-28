@@ -1,4 +1,5 @@
 """Internet Archive (archive.org) — public-domain / openly licensed feature films."""
+
 import re
 
 import httpx
@@ -8,16 +9,48 @@ from .base import SourceItem, as_list, strip_html
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 # Only items that are explicitly openly licensed, or old enough to be public-domain
 # candidates (US works up to 1977 without renewed copyright); recent "rips" are excluded.
-BASE_QUERY = ('collection:(feature_films) AND mediatype:(movies) '
-              'AND (licenseurl:(*publicdomain* OR *creativecommons*) OR year:[1880 TO 1977]) '
-              'AND -subject:(nudity OR sexploitation OR "nudie cutie" OR erotic) '
-              'AND -title:(rip OR brrip OR x265 OR hevc OR 1080p)')
-FIELDS = ["identifier", "title", "year", "date", "description", "subject", "downloads", "runtime",
-          "creator", "language"]
+BASE_QUERY = (
+    "collection:(feature_films) AND mediatype:(movies) "
+    "AND (licenseurl:(*publicdomain* OR *creativecommons*) OR year:[1880 TO 1977]) "
+    'AND -subject:(nudity OR sexploitation OR "nudie cutie" OR erotic) '
+    "AND -title:(rip OR brrip OR x265 OR hevc OR 1080p)"
+)
+FIELDS = [
+    "identifier",
+    "title",
+    "year",
+    "date",
+    "description",
+    "subject",
+    "downloads",
+    "runtime",
+    "creator",
+    "language",
+]
 GENRES = {
-    "action", "adventure", "animation", "comedy", "crime", "documentary", "drama", "family", "fantasy",
-    "film noir", "history", "horror", "music", "musical", "mystery", "romance", "science fiction",
-    "sci-fi", "thriller", "war", "western", "silent", "short",
+    "action",
+    "adventure",
+    "animation",
+    "comedy",
+    "crime",
+    "documentary",
+    "drama",
+    "family",
+    "fantasy",
+    "film noir",
+    "history",
+    "horror",
+    "music",
+    "musical",
+    "mystery",
+    "romance",
+    "science fiction",
+    "sci-fi",
+    "thriller",
+    "war",
+    "western",
+    "silent",
+    "short",
 }
 
 
@@ -45,8 +78,20 @@ def _year(doc: dict) -> int | None:
     return None
 
 
-LANG_MAP = {"english": "en", "eng": "en", "french": "fr", "fre": "fr", "fra": "fr", "spanish": "es",
-            "spa": "es", "german": "de", "ger": "de", "italian": "it", "ita": "it", "russian": "ru"}
+LANG_MAP = {
+    "english": "en",
+    "eng": "en",
+    "french": "fr",
+    "fre": "fr",
+    "fra": "fr",
+    "spanish": "es",
+    "spa": "es",
+    "german": "de",
+    "ger": "de",
+    "italian": "it",
+    "ita": "it",
+    "russian": "ru",
+}
 
 
 def _to_item(doc: dict) -> SourceItem:
@@ -55,8 +100,13 @@ def _to_item(doc: dict) -> SourceItem:
     if isinstance(title, list):
         title = title[0]
     subjects = [s.lower() for s in as_list(doc.get("subject"))]
-    genres = sorted({("Science Fiction" if s in ("sci-fi", "science fiction") else s.title())
-                     for s in subjects if s in GENRES})
+    genres = sorted(
+        {
+            ("Science Fiction" if s in ("sci-fi", "science fiction") else s.title())
+            for s in subjects
+            if s in GENRES
+        }
+    )
     lang = as_list(doc.get("language"))
     directors = as_list(doc.get("creator"))[:3]
     return SourceItem(
@@ -64,8 +114,11 @@ def _to_item(doc: dict) -> SourceItem:
         source_id=ident,
         title=str(title).strip()[:500],
         year=_year(doc),
-        summary=strip_html(doc.get("description") if isinstance(doc.get("description"), str)
-                           else " ".join(as_list(doc.get("description")))),
+        summary=strip_html(
+            doc.get("description")
+            if isinstance(doc.get("description"), str)
+            else " ".join(as_list(doc.get("description")))
+        ),
         genres=genres,
         runtime_minutes=_runtime(doc.get("runtime")),
         poster_url=f"https://archive.org/services/img/{ident}",
@@ -77,12 +130,24 @@ def _to_item(doc: dict) -> SourceItem:
 
 
 def _escape(query: str) -> str:
-    words = [w for w in re.findall(r"\w+", query, flags=re.UNICODE) if len(w) > 1 or w.isdigit()]
+    words = [
+        w
+        for w in re.findall(r"\w+", query, flags=re.UNICODE)
+        if len(w) > 1 or w.isdigit()
+    ]
     return " AND ".join(f"{w.lower()}*" for w in words[:8])
 
 
-async def _query(client: httpx.AsyncClient, q: str, rows: int, sort: str) -> list[SourceItem]:
-    params = [("q", q), ("rows", str(rows)), ("page", "1"), ("output", "json"), ("sort[]", sort)]
+async def _query(
+    client: httpx.AsyncClient, q: str, rows: int, sort: str
+) -> list[SourceItem]:
+    params = [
+        ("q", q),
+        ("rows", str(rows)),
+        ("page", "1"),
+        ("output", "json"),
+        ("sort[]", sort),
+    ]
     params += [("fl[]", f) for f in FIELDS]
     r = await client.get(SEARCH_URL, params=params, timeout=20)
     r.raise_for_status()
@@ -94,11 +159,15 @@ async def popular(client: httpx.AsyncClient, rows: int = 150) -> list[SourceItem
     return await _query(client, BASE_QUERY, rows, "downloads desc")
 
 
-async def search(client: httpx.AsyncClient, query: str, rows: int = 120) -> list[SourceItem]:
+async def search(
+    client: httpx.AsyncClient, query: str, rows: int = 120
+) -> list[SourceItem]:
     terms = _escape(query)
     if not terms:
         return []
-    return await _query(client, f"({BASE_QUERY}) AND title:({terms})", rows, "downloads desc")
+    return await _query(
+        client, f"({BASE_QUERY}) AND title:({terms})", rows, "downloads desc"
+    )
 
 
 def torrent_url(identifier: str) -> str:
@@ -120,8 +189,14 @@ async def storage_web_seeds(client: httpx.AsyncClient, identifier: str) -> list[
     if not re.match(r"^/[\w./-]+$", directory):
         return []
     parent = directory.rsplit("/", 1)[0] + "/"
-    hosts = data.get("workable_servers") or [h for h in (data.get("d1"), data.get("d2")) if h]
-    return [f"https://{h}{parent}" for h in hosts if isinstance(h, str) and re.match(r"^[a-z0-9.-]+\.archive\.org$", h)][:3]
+    hosts = data.get("workable_servers") or [
+        h for h in (data.get("d1"), data.get("d2")) if h
+    ]
+    return [
+        f"https://{h}{parent}"
+        for h in hosts
+        if isinstance(h, str) and re.match(r"^[a-z0-9.-]+\.archive\.org$", h)
+    ][:3]
 
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$")
@@ -131,5 +206,7 @@ async def fetch_one(client: httpx.AsyncClient, identifier: str) -> SourceItem | 
     """One item by identifier, only if it passes the same legality filters as search."""
     if not IDENTIFIER_RE.match(identifier):
         return None
-    items = await _query(client, f'({BASE_QUERY}) AND identifier:"{identifier}"', 1, "downloads desc")
+    items = await _query(
+        client, f'({BASE_QUERY}) AND identifier:"{identifier}"', 1, "downloads desc"
+    )
     return items[0] if items else None
